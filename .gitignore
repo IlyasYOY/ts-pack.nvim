@@ -2,5 +2,6 @@ nvim.log
 doc/tags
 .DS_Store
 .luarocks/
+.testdata/
 *.swp
 *.swo
