@@ -27,7 +27,9 @@ jobs:
       - name: Set up Stylua
         uses: JohnnyMorganz/stylua-action@v4
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           version: latest
+          args: false
 
       - name: Set up Lua and LuaRocks
         uses: leafo/gh-actions-lua@v11
