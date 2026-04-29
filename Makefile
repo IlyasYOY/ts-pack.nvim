@@ -9,7 +9,7 @@ TEST_ENV := XDG_CONFIG_HOME=$(CURDIR)/.testdata/config \
 	XDG_CACHE_HOME=$(CURDIR)/.testdata/cache
 TEST_CMD := $(TEST_ENV) $(NVIM) --headless --clean -u test/minimal_init.lua -l test/runner.lua
 
-.PHONY: format format-check lint doc test test-unit check clean
+.PHONY: format format-check lint doc test test-unit test-e2e check clean
 
 format:
 	$(STYLUA) $(LUA_FILES)
@@ -23,6 +23,10 @@ lint:
 test:
 	@$(TEST_CMD)
 
-test-unit: test
+test-unit:
+	@$(TEST_CMD) '$(CURDIR)/lua/**/*_spec.lua'
 
-check: format-check lint test
+test-e2e:
+	@$(TEST_CMD) '$(CURDIR)/test/e2e/**/*_spec.lua'
+
+check: format-check lint test-unit test-e2e

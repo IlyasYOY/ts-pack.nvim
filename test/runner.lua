@@ -1,5 +1,5 @@
 local root = vim.g.ts_pack_test_root or vim.fn.getcwd()
-local pattern = root .. '/lua/**/*_spec.lua'
+local pattern = arg and arg[1] or root .. '/lua/**/*_spec.lua'
 local specs = vim.fn.glob(pattern, false, true)
 
 table.sort(specs)
