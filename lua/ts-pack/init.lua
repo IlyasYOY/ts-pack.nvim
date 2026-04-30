@@ -135,6 +135,91 @@ local function async_git(args, cwd)
   return async_system(cmd, { cwd = cwd })
 end
 
+local function install_summary_message(names)
+  local quoted = {}
+  for _, name in ipairs(names) do
+    quoted[#quoted + 1] = ('`%s`'):format(name)
+  end
+
+  if #quoted == 1 then
+    return ('ts-pack installed parser: %s'):format(quoted[1])
+  end
+  return ('ts-pack installed parsers: %s'):format(table.concat(quoted, ', '))
+end
+
+local function echo_install_progress(report, message, status, percent)
+  if not report.progress then
+    return
+  end
+
+  local opts = {
+    id = report.progress.id,
+    kind = 'progress',
+    source = 'ts-pack',
+    title = 'Installing parsers',
+    status = status,
+    percent = percent,
+  }
+  local ok = pcall(vim.api.nvim_echo, { { message } }, true, opts)
+  if not ok then
+    report.progress = nil
+  end
+end
+
+local function start_install_report(total)
+  local report = {
+    installed = {},
+    total = total,
+  }
+
+  if vim.fn.has('nvim-0.12') ~= 1 then
+    return report
+  end
+  if not vim.api or type(vim.api.nvim_echo) ~= 'function' then
+    return report
+  end
+
+  local ok, id = pcall(vim.api.nvim_echo, { { 'Installing parsers' } }, true, {
+    kind = 'progress',
+    source = 'ts-pack',
+    title = 'Installing parsers',
+    status = 'running',
+    percent = total and 0 or nil,
+  })
+  if ok then
+    report.progress = { id = id }
+  end
+
+  return report
+end
+
+local function record_installed_parser(report, name)
+  report.installed[#report.installed + 1] = name
+
+  if not report.progress then
+    return
+  end
+
+  local percent
+  if report.total and report.total > 0 then
+    percent = math.floor((#report.installed / report.total) * 100)
+  end
+  echo_install_progress(report, ('Installed parser `%s`'):format(name), 'running', percent)
+end
+
+local function finish_install_report(report, failed)
+  if not report or #report.installed == 0 then
+    if report and report.progress then
+      echo_install_progress(report, 'No parsers installed', failed and 'failure' or 'success', 100)
+    end
+    return
+  end
+
+  local message = install_summary_message(report.installed)
+  echo_install_progress(report, message, failed and 'failure' or 'success', failed and nil or 100)
+  vim.notify(message, vim.log.levels.INFO)
+end
+
 local function read_json(path, fallback)
   if not path_exists(path) then
     return fallback
@@ -641,18 +726,27 @@ local function run_async_add(specs, opts)
   async_running = true
   opts = vim.deepcopy(opts or {})
   opts.async = nil
+  local report = start_install_report(#specs)
 
   local thread = coroutine.create(function()
     for _, spec in ipairs(specs) do
-      install_parser_async(spec, opts)
-      vim.notify(('ts-pack installed parser `%s`'):format(spec.name), vim.log.levels.INFO)
+      local ok, err = pcall(install_parser_async, spec, opts)
+      if not ok then
+        async_running = false
+        finish_install_report(report, true)
+        vim.notify(('ts-pack async add failed: %s'):format(err), vim.log.levels.ERROR)
+        return
+      end
+      record_installed_parser(report, spec.name)
     end
     async_running = false
+    finish_install_report(report)
   end)
 
   local ok, err = coroutine.resume(thread)
   if not ok then
     async_running = false
+    finish_install_report(report, true)
     vim.notify(('ts-pack async add failed: %s'):format(err), vim.log.levels.ERROR)
   end
 end
@@ -685,6 +779,7 @@ function M.add(specs, opts)
     return result
   end
 
+  local report
   for _, spec in ipairs(normalized) do
     remember_spec(spec)
     local lock_entry = load_lock().parsers[spec.name]
@@ -694,10 +789,18 @@ function M.add(specs, opts)
       item.spec = vim.deepcopy(spec)
       result[#result + 1] = add_info(item, spec.name)
     else
-      result[#result + 1] = install_parser(spec, opts)
+      report = report or start_install_report()
+      local ok, item = pcall(install_parser, spec, opts)
+      if not ok then
+        finish_install_report(report, true)
+        error(item, 0)
+      end
+      record_installed_parser(report, spec.name)
+      result[#result + 1] = item
     end
   end
 
+  finish_install_report(report)
   return result
 end
 
@@ -745,15 +848,25 @@ end
 function M.update(names, opts)
   opts = opts or {}
   local result = {}
+  local normalized = normalize_names(names)
+  local report
 
-  for _, name in ipairs(normalize_names(names)) do
+  for _, name in ipairs(normalized) do
     local spec = active[name]
     if not spec then
       error(('parser `%s` is not active; call add() with a full spec first'):format(name), 2)
     end
-    result[#result + 1] = install_parser(spec, opts)
+    report = report or start_install_report(#normalized)
+    local ok, item = pcall(install_parser, spec, opts)
+    if not ok then
+      finish_install_report(report, true)
+      error(item, 0)
+    end
+    record_installed_parser(report, spec.name)
+    result[#result + 1] = item
   end
 
+  finish_install_report(report)
   return result
 end
 

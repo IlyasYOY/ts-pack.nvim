@@ -251,7 +251,7 @@ describe('ts-pack', function()
     )
   end)
 
-  it('logs only successfully installed parsers during async add', function()
+  it('logs installed parsers once during async add', function()
     local repo = make_parser_repo('fixture')
     local original_notify = vim.notify
     local messages = {}
@@ -272,8 +272,158 @@ describe('ts-pack', function()
 
     assert.truthy(done)
     assert.equals(1, #messages)
-    assert.equals('ts-pack installed parser `fixture`', messages[1].message)
+    assert.equals('ts-pack installed parser: `fixture`', messages[1].message)
     assert.equals(vim.log.levels.INFO, messages[1].level)
+  end)
+
+  it('logs all installed parsers in one async summary', function()
+    local first = make_parser_repo('first')
+    local second = make_parser_repo('second')
+    local original_notify = vim.notify
+    local messages = {}
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = first, name = 'first', version = 'HEAD' },
+      { src = second, name = 'second', version = 'HEAD' },
+    }, { async = true })
+
+    local done = vim.wait(10000, function()
+      return vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'first.so'))
+          ~= nil
+        and vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'second.so'))
+          ~= nil
+    end)
+    vim.notify = original_notify
+
+    assert.truthy(done)
+    assert.equals(1, #messages)
+    assert.equals('ts-pack installed parsers: `first`, `second`', messages[1].message)
+    assert.equals(vim.log.levels.INFO, messages[1].level)
+  end)
+
+  it('logs partial async installs before an async failure', function()
+    local repo = make_parser_repo('fixture')
+    local original_notify = vim.notify
+    local messages = {}
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = repo, name = 'fixture', version = 'HEAD' },
+      { src = '/definitely/missing/tree-sitter-broken', name = 'broken', version = 'HEAD' },
+    }, { async = true })
+
+    local done = vim.wait(10000, function()
+      return #messages == 2
+    end)
+    vim.notify = original_notify
+
+    assert.truthy(done)
+    assert.equals('ts-pack installed parser: `fixture`', messages[1].message)
+    assert.equals(vim.log.levels.INFO, messages[1].level)
+    assert.equals(vim.log.levels.ERROR, messages[2].level)
+    assert.truthy(messages[2].message:match('ts%-pack async add failed'))
+  end)
+
+  it('does not log when add skips already installed parsers', function()
+    local repo = make_parser_repo('fixture')
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = repo, name = 'fixture', version = 'HEAD' },
+    })
+
+    local original_notify = vim.notify
+    local messages = {}
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    ts_pack.add({
+      { src = repo, name = 'fixture', version = 'HEAD' },
+    })
+    vim.notify = original_notify
+
+    assert.equals(0, #messages)
+  end)
+
+  it('logs installed parsers once during sync add', function()
+    local first = make_parser_repo('first')
+    local second = make_parser_repo('second')
+    local original_notify = vim.notify
+    local messages = {}
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = first, name = 'first', version = 'HEAD' },
+      { src = second, name = 'second', version = 'HEAD' },
+    })
+    vim.notify = original_notify
+
+    assert.equals(1, #messages)
+    assert.equals('ts-pack installed parsers: `first`, `second`', messages[1].message)
+    assert.equals(vim.log.levels.INFO, messages[1].level)
+  end)
+
+  it('logs installed parsers once during update', function()
+    local repo = make_parser_repo('fixture')
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = repo, name = 'fixture', version = 'HEAD' },
+    })
+
+    local original_notify = vim.notify
+    local messages = {}
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    ts_pack.update({ 'fixture' })
+    vim.notify = original_notify
+
+    assert.equals(1, #messages)
+    assert.equals('ts-pack installed parser: `fixture`', messages[1].message)
+    assert.equals(vim.log.levels.INFO, messages[1].level)
+  end)
+
+  it('emits native progress when available', function()
+    if vim.fn.has('nvim-0.12') ~= 1 then
+      return
+    end
+
+    local repo = make_parser_repo('fixture')
+    local original_echo = vim.api.nvim_echo
+    local echoes = {}
+    vim.api.nvim_echo = function(chunks, history, opts)
+      echoes[#echoes + 1] = { chunks = chunks, history = history, opts = opts }
+      return 42
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = repo, name = 'fixture', version = 'HEAD' },
+    })
+    vim.api.nvim_echo = original_echo
+
+    local progress = {}
+    for _, echo in ipairs(echoes) do
+      if echo.opts and echo.opts.kind == 'progress' then
+        progress[#progress + 1] = echo
+      end
+    end
+
+    assert.truthy(#progress >= 3)
+    assert.equals('running', progress[1].opts.status)
+    assert.equals('success', progress[#progress].opts.status)
+    assert.equals(100, progress[#progress].opts.percent)
   end)
 
   it('notifies async failures and allows a later async add to start', function()
