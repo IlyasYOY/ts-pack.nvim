@@ -24,6 +24,9 @@ ts_pack.add({
 })
 ```
 
+Keep the same `add()` call in your config. It registers the parser specs for
+the current session and installs missing parser artifacts.
+
 ## API
 
 ```lua
@@ -37,6 +40,74 @@ require('ts-pack').get(names, opts)
 leading `tree-sitter-` stripped. `names` is an optional list of parser names; if
 omitted, the active parsers from the current session are used.
 
+## Updating parsers
+
+Call `add()` with the complete specs first, then call `update()`.
+
+```lua
+local ts_pack = require('ts-pack')
+
+ts_pack.add({
+  {
+    src = 'https://github.com/tree-sitter/tree-sitter-lua',
+    name = 'lua',
+    version = 'main',
+  },
+})
+
+-- Update one parser.
+ts_pack.update({ 'lua' })
+
+-- Update every parser registered by add() in this session.
+ts_pack.update()
+
+-- Start an update in the background.
+ts_pack.update({ 'lua' }, { async = true })
+```
+
+By default, `update()` reuses the lockfile revision when one exists. To update
+to the spec `version`, pass `target = 'version'`:
+
+```lua
+ts_pack.update({ 'lua' }, { target = 'version' })
+```
+
+To restore the lockfile revision explicitly:
+
+```lua
+ts_pack.update({ 'lua' }, { target = 'lockfile' })
+```
+
+## Deleting parsers
+
+Call `del()` with parser names to remove installed artifacts and the lockfile
+entry:
+
+```lua
+local ts_pack = require('ts-pack')
+
+ts_pack.add({
+  {
+    src = 'https://github.com/tree-sitter/tree-sitter-lua',
+    name = 'lua',
+    version = 'main',
+  },
+})
+
+-- Delete one parser.
+ts_pack.del({ 'lua' })
+
+-- Delete every parser registered by add() in this session.
+ts_pack.del()
+```
+
+Deleting a parser removes:
+
+- `parser/<name>.so`
+- `parser-info/<name>.revision`
+- `queries/<name>/`
+- the parser entry from `ts-pack-lock.json`
+
 Supported options follow `vim.pack` naming where they apply:
 
 - `offline = true` prevents git clone/fetch.
@@ -44,8 +115,9 @@ Supported options follow `vim.pack` naming where they apply:
 - `target = 'lockfile'` restores the lockfile revision.
 - `info = false` keeps `get()` from reading extra lockfile/install metadata.
 - `async = true` registers the specs immediately and installs missing parsers in
-  a coroutine, yielding around clone/fetch/build subprocesses so startup does not
-  wait for parser installation.
+  a coroutine when passed to `add()`. It updates active parsers in a coroutine
+  when passed to `update()`. Both paths yield around clone/fetch/build
+  subprocesses so startup does not wait for parser installation.
 
 Parser artifacts are installed under `stdpath('data')/site`:
 
