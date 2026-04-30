@@ -168,6 +168,27 @@ describe('ts-pack', function()
     assert.truthy(err:match('offline'))
   end)
 
+  it('fails before git checkout when a cached parser has an index lock', function()
+    local repo = make_parser_repo('fixture')
+    local cache = vim.fs.joinpath(vim.fn.stdpath('cache'), 'ts-pack', 'fixture')
+    local index_lock = vim.fs.joinpath(cache, '.git', 'index.lock')
+    write(index_lock, { 'locked' })
+
+    local ts_pack = require('ts-pack')
+    local ok, err = pcall(function()
+      ts_pack.add({
+        { src = repo, name = 'fixture', version = 'HEAD' },
+      })
+    end)
+
+    assert.falsy(ok)
+    assert.truthy(err:match('parser `fixture` checkout is locked'))
+    assert.truthy(err:match(vim.pesc(index_lock)))
+    assert.falsy(
+      vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('cache'), 'ts-pack', '.locks', 'fixture.lock'))
+    )
+  end)
+
   it('reports active and installed parsers from get', function()
     local repo = make_parser_repo('fixture')
     local ts_pack = require('ts-pack')
@@ -253,5 +274,77 @@ describe('ts-pack', function()
     assert.equals(1, #messages)
     assert.equals('ts-pack installed parser `fixture`', messages[1].message)
     assert.equals(vim.log.levels.INFO, messages[1].level)
+  end)
+
+  it('notifies async failures and allows a later async add to start', function()
+    local original_system = vim.system
+    local original_notify = vim.notify
+    local calls = {}
+    local callbacks = {}
+    local messages = {}
+
+    vim.system = function(cmd, opts, callback)
+      calls[#calls + 1] = { cmd = cmd, opts = opts }
+      callbacks[#callbacks + 1] = callback
+      return {}
+    end
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = '/tmp/tree-sitter-fixture', name = 'fixture', version = 'HEAD' },
+    }, { async = true, info = false })
+
+    callbacks[1]({ code = 1, stderr = 'clone failed' })
+    local failed = vim.wait(1000, function()
+      return #messages == 1
+    end)
+
+    ts_pack.add({
+      { src = '/tmp/tree-sitter-other', name = 'other', version = 'HEAD' },
+    }, { async = true, info = false })
+
+    vim.system = original_system
+    vim.notify = original_notify
+
+    assert.truthy(failed)
+    assert.equals(vim.log.levels.ERROR, messages[1].level)
+    assert.truthy(messages[1].message:match('ts%-pack async add failed'))
+    assert.truthy(messages[1].message:match('clone failed'))
+    assert.equals(2, #calls)
+    assert.equals('other', calls[2].cmd[5]:match('[^/]+$'))
+  end)
+
+  it('reports overlapping async add calls instead of dropping them silently', function()
+    local original_system = vim.system
+    local original_notify = vim.notify
+    local calls = {}
+    local messages = {}
+
+    vim.system = function(cmd, opts, callback)
+      calls[#calls + 1] = { cmd = cmd, opts = opts, callback = callback }
+      return {}
+    end
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = '/tmp/tree-sitter-fixture', name = 'fixture', version = 'HEAD' },
+    }, { async = true, info = false })
+    ts_pack.add({
+      { src = '/tmp/tree-sitter-other', name = 'other', version = 'HEAD' },
+    }, { async = true, info = false })
+
+    vim.system = original_system
+    vim.notify = original_notify
+
+    assert.equals(1, #calls)
+    assert.equals(1, #messages)
+    assert.equals(vim.log.levels.WARN, messages[1].level)
+    assert.truthy(messages[1].message:match('already running'))
   end)
 end)

@@ -93,7 +93,8 @@ local function resume_async(thread, result)
   vim.schedule(function()
     local ok, err = coroutine.resume(thread, result)
     if not ok then
-      error(err, 0)
+      async_running = false
+      vim.notify(('ts-pack async add failed: %s'):format(err), vim.log.levels.ERROR)
     end
   end)
 end
@@ -249,6 +250,66 @@ local function checkout_path(spec)
   return joinpath(cache_dir(), spec.name)
 end
 
+local function checkout_lock_path(spec)
+  return joinpath(cache_dir(), '.locks', spec.name .. '.lock')
+end
+
+local function git_index_lock_path(path)
+  return joinpath(path, '.git', 'index.lock')
+end
+
+local function assert_git_unlocked(spec, path)
+  local lock = git_index_lock_path(path)
+  if path_exists(lock) then
+    error(
+      ('parser `%s` checkout is locked: %s; remove it only after confirming no git process is running'):format(
+        spec.name,
+        lock
+      ),
+      0
+    )
+  end
+end
+
+local function acquire_checkout_lock(spec)
+  local locks = joinpath(cache_dir(), '.locks')
+  ensure_dir(locks)
+
+  local path = checkout_lock_path(spec)
+  local ok, err = uv.fs_mkdir(path, 448)
+  if not ok then
+    if err == 'EEXIST' then
+      error(('parser `%s` checkout is already running: %s'):format(spec.name, path), 0)
+    end
+    error(
+      ('failed to lock parser `%s` checkout at %s: %s'):format(
+        spec.name,
+        path,
+        err or 'unknown error'
+      ),
+      0
+    )
+  end
+
+  return path
+end
+
+local function release_checkout_lock(path)
+  if path then
+    vim.fn.delete(path, 'rf')
+  end
+end
+
+local function with_checkout_lock(spec, fn)
+  local lock = acquire_checkout_lock(spec)
+  local ok, result = pcall(fn)
+  release_checkout_lock(lock)
+  if not ok then
+    error(result, 0)
+  end
+  return result
+end
+
 local function current_rev(path)
   return vim.trim(git({ 'rev-parse', 'HEAD' }, path).stdout or '')
 end
@@ -274,23 +335,27 @@ local function ensure_checkout(spec, ref, opts)
     return spec.path
   end
 
-  local path = checkout_path(spec)
-  ensure_dir(cache_dir())
+  return with_checkout_lock(spec, function()
+    local path = checkout_path(spec)
+    ensure_dir(cache_dir())
 
-  if not path_exists(path) then
-    if opts and opts.offline then
-      error(('parser `%s` is not checked out and `offline` is set'):format(spec.name), 0)
+    if not path_exists(path) then
+      if opts and opts.offline then
+        error(('parser `%s` is not checked out and `offline` is set'):format(spec.name), 0)
+      end
+      git({ 'clone', '--filter=blob:none', spec.src, path })
+    elseif not (opts and opts.offline) then
+      assert_git_unlocked(spec, path)
+      git({ 'fetch', '--tags', '--force' }, path)
     end
-    git({ 'clone', '--filter=blob:none', spec.src, path })
-  elseif not (opts and opts.offline) then
-    git({ 'fetch', '--tags', '--force' }, path)
-  end
 
-  if ref and ref ~= '' then
-    git({ 'checkout', '--detach', ref }, path)
-  end
+    if ref and ref ~= '' then
+      assert_git_unlocked(spec, path)
+      git({ 'checkout', '--detach', ref }, path)
+    end
 
-  return path
+    return path
+  end)
 end
 
 local function ensure_checkout_async(spec, ref, opts)
@@ -298,23 +363,27 @@ local function ensure_checkout_async(spec, ref, opts)
     return spec.path
   end
 
-  local path = checkout_path(spec)
-  ensure_dir(cache_dir())
+  return with_checkout_lock(spec, function()
+    local path = checkout_path(spec)
+    ensure_dir(cache_dir())
 
-  if not path_exists(path) then
-    if opts and opts.offline then
-      error(('parser `%s` is not checked out and `offline` is set'):format(spec.name), 0)
+    if not path_exists(path) then
+      if opts and opts.offline then
+        error(('parser `%s` is not checked out and `offline` is set'):format(spec.name), 0)
+      end
+      async_git({ 'clone', '--filter=blob:none', spec.src, path })
+    elseif not (opts and opts.offline) then
+      assert_git_unlocked(spec, path)
+      async_git({ 'fetch', '--tags', '--force' }, path)
     end
-    async_git({ 'clone', '--filter=blob:none', spec.src, path })
-  elseif not (opts and opts.offline) then
-    async_git({ 'fetch', '--tags', '--force' }, path)
-  end
 
-  if ref and ref ~= '' then
-    async_git({ 'checkout', '--detach', ref }, path)
-  end
+    if ref and ref ~= '' then
+      assert_git_unlocked(spec, path)
+      async_git({ 'checkout', '--detach', ref }, path)
+    end
 
-  return path
+    return path
+  end)
 end
 
 local function generate_parser(spec, root)
@@ -565,6 +634,7 @@ end
 
 local function run_async_add(specs, opts)
   if async_running then
+    vim.notify('ts-pack async add is already running; request ignored', vim.log.levels.WARN)
     return
   end
 
@@ -583,7 +653,7 @@ local function run_async_add(specs, opts)
   local ok, err = coroutine.resume(thread)
   if not ok then
     async_running = false
-    error(err, 0)
+    vim.notify(('ts-pack async add failed: %s'):format(err), vim.log.levels.ERROR)
   end
 end
 
