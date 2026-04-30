@@ -394,6 +394,89 @@ describe('ts-pack', function()
     assert.equals(vim.log.levels.INFO, messages[1].level)
   end)
 
+  it('starts coroutine async update without installing inline', function()
+    local repo = make_parser_repo('fixture')
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = repo, name = 'fixture', version = 'HEAD' },
+    })
+
+    local original_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, opts, callback)
+      calls[#calls + 1] = { cmd = cmd, opts = opts, callback = callback }
+      return {}
+    end
+
+    local result = ts_pack.update({ 'fixture' }, { async = true, target = 'version' })
+    vim.system = original_system
+
+    assert.equals(1, #calls)
+    assert.equals('git', calls[1].cmd[1])
+    assert.equals('fetch', calls[1].cmd[2])
+    assert.truthy(result[1].active)
+    assert.truthy(result[1].pending)
+  end)
+
+  it('restores parser artifacts in the background with async update', function()
+    local repo = make_parser_repo('fixture')
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = repo, name = 'fixture', version = 'HEAD' },
+    })
+    local parser_path = vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'fixture.so')
+    vim.fn.delete(parser_path)
+
+    ts_pack.update({ 'fixture' }, { async = true, target = 'lockfile' })
+
+    local done = vim.wait(10000, function()
+      return vim.uv.fs_stat(parser_path) ~= nil
+    end)
+
+    assert.truthy(done)
+  end)
+
+  it('notifies async update failures and allows a later async update to start', function()
+    local repo = make_parser_repo('fixture')
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = repo, name = 'fixture', version = 'HEAD' },
+    })
+
+    local original_system = vim.system
+    local original_notify = vim.notify
+    local calls = {}
+    local callbacks = {}
+    local messages = {}
+
+    vim.system = function(cmd, opts, callback)
+      calls[#calls + 1] = { cmd = cmd, opts = opts }
+      callbacks[#callbacks + 1] = callback
+      return {}
+    end
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    ts_pack.update({ 'fixture' }, { async = true, target = 'version' })
+
+    callbacks[1]({ code = 1, stderr = 'fetch failed' })
+    local failed = vim.wait(1000, function()
+      return #messages == 1
+    end)
+
+    ts_pack.update({ 'fixture' }, { async = true, target = 'version' })
+
+    vim.system = original_system
+    vim.notify = original_notify
+
+    assert.truthy(failed)
+    assert.equals(vim.log.levels.ERROR, messages[1].level)
+    assert.truthy(messages[1].message:match('ts%-pack async update failed'))
+    assert.truthy(messages[1].message:match('fetch failed'))
+    assert.equals(2, #calls)
+  end)
+
   it('emits native progress when available', function()
     if vim.fn.has('nvim-0.12') ~= 1 then
       return

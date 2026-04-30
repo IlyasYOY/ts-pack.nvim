@@ -1,311 +1,16 @@
 local M = {}
 
-local uv = vim.uv or vim.loop
+local fs = require('ts-pack.fs')
+local install = require('ts-pack.install')
+local path = require('ts-pack.path')
+local process = require('ts-pack.process')
+local report = require('ts-pack.report')
+local spec = require('ts-pack.spec')
 
 local active = {}
 local active_order = {}
 local async_running = false
-
-local function joinpath(...)
-  return vim.fs.joinpath(...)
-end
-
-local function is_list(value)
-  return type(value) == 'table' and vim.islist(value)
-end
-
-local function assert_list(name, value)
-  if not is_list(value) then
-    error(('`%s` must be a list'):format(name), 3)
-  end
-end
-
-local function default_site_dir()
-  return joinpath(vim.fn.stdpath('data'), 'site')
-end
-
-local function cache_dir()
-  return joinpath(vim.fn.stdpath('cache'), 'ts-pack')
-end
-
-local function lockfile_path()
-  return joinpath(vim.fn.stdpath('config'), 'ts-pack-lock.json')
-end
-
-local function parser_dir(opts)
-  return joinpath((opts and opts.dir) or default_site_dir(), 'parser')
-end
-
-local function parser_info_dir(opts)
-  return joinpath((opts and opts.dir) or default_site_dir(), 'parser-info')
-end
-
-local function queries_dir(opts)
-  return joinpath((opts and opts.dir) or default_site_dir(), 'queries')
-end
-
-local function ensure_dir(path)
-  vim.fn.mkdir(path, 'p')
-end
-
-local function path_exists(path)
-  return uv.fs_stat(path) ~= nil
-end
-
-local function basename(src)
-  local name = src:gsub('%.git$', '')
-  name = name:match('[^/]+$') or name
-  return name:gsub('^tree%-sitter%-', '')
-end
-
-local function shell_error(cmd, cwd, result)
-  local where = cwd and (' in ' .. cwd) or ''
-  local stderr = result.stderr and vim.trim(result.stderr) or ''
-  local stdout = result.stdout and vim.trim(result.stdout) or ''
-  local detail = stderr ~= '' and stderr or stdout
-  if detail ~= '' then
-    detail = ': ' .. detail
-  end
-  return ('command failed%s: %s%s'):format(where, table.concat(cmd, ' '), detail)
-end
-
-local function system(cmd, opts)
-  opts = opts or {}
-  local result = vim.system(cmd, { cwd = opts.cwd, text = true, env = opts.env }):wait()
-  if result.code ~= 0 then
-    error(shell_error(cmd, opts.cwd, result), 0)
-  end
-  return result
-end
-
-local function system_result(cmd, opts)
-  opts = opts or {}
-  return vim.system(cmd, { cwd = opts.cwd, text = true, env = opts.env }):wait()
-end
-
-local function git(args, cwd)
-  local cmd = { 'git' }
-  vim.list_extend(cmd, args)
-  return system(cmd, { cwd = cwd })
-end
-
-local function resume_async(thread, result)
-  vim.schedule(function()
-    local ok, err = coroutine.resume(thread, result)
-    if not ok then
-      async_running = false
-      vim.notify(('ts-pack async add failed: %s'):format(err), vim.log.levels.ERROR)
-    end
-  end)
-end
-
-local function async_system_result(cmd, opts)
-  opts = opts or {}
-  local thread = coroutine.running()
-  if not thread then
-    error('async_system_result must run inside a coroutine', 2)
-  end
-
-  local ok, err = pcall(vim.system, cmd, {
-    cwd = opts.cwd,
-    text = true,
-    env = opts.env,
-  }, function(result)
-    resume_async(thread, result)
-  end)
-
-  if not ok then
-    error(err, 0)
-  end
-
-  return coroutine.yield()
-end
-
-local function async_system(cmd, opts)
-  local result = async_system_result(cmd, opts)
-  if result.code ~= 0 then
-    error(shell_error(cmd, opts and opts.cwd or nil, result), 0)
-  end
-  return result
-end
-
-local function async_git(args, cwd)
-  local cmd = { 'git' }
-  vim.list_extend(cmd, args)
-  return async_system(cmd, { cwd = cwd })
-end
-
-local function install_summary_message(names)
-  local quoted = {}
-  for _, name in ipairs(names) do
-    quoted[#quoted + 1] = ('`%s`'):format(name)
-  end
-
-  if #quoted == 1 then
-    return ('ts-pack installed parser: %s'):format(quoted[1])
-  end
-  return ('ts-pack installed parsers: %s'):format(table.concat(quoted, ', '))
-end
-
-local function echo_install_progress(report, message, status, percent)
-  if not report.progress then
-    return
-  end
-
-  local opts = {
-    id = report.progress.id,
-    kind = 'progress',
-    source = 'ts-pack',
-    title = 'Installing parsers',
-    status = status,
-    percent = percent,
-  }
-  local ok = pcall(vim.api.nvim_echo, { { message } }, true, opts)
-  if not ok then
-    report.progress = nil
-  end
-end
-
-local function start_install_report(total)
-  local report = {
-    installed = {},
-    total = total,
-  }
-
-  if vim.fn.has('nvim-0.12') ~= 1 then
-    return report
-  end
-  if not vim.api or type(vim.api.nvim_echo) ~= 'function' then
-    return report
-  end
-
-  local ok, id = pcall(vim.api.nvim_echo, { { 'Installing parsers' } }, true, {
-    kind = 'progress',
-    source = 'ts-pack',
-    title = 'Installing parsers',
-    status = 'running',
-    percent = total and 0 or nil,
-  })
-  if ok then
-    report.progress = { id = id }
-  end
-
-  return report
-end
-
-local function record_installed_parser(report, name)
-  report.installed[#report.installed + 1] = name
-
-  if not report.progress then
-    return
-  end
-
-  local percent
-  if report.total and report.total > 0 then
-    percent = math.floor((#report.installed / report.total) * 100)
-  end
-  echo_install_progress(report, ('Installed parser `%s`'):format(name), 'running', percent)
-end
-
-local function finish_install_report(report, failed)
-  if not report or #report.installed == 0 then
-    if report and report.progress then
-      echo_install_progress(report, 'No parsers installed', failed and 'failure' or 'success', 100)
-    end
-    return
-  end
-
-  local message = install_summary_message(report.installed)
-  echo_install_progress(report, message, failed and 'failure' or 'success', failed and nil or 100)
-  vim.notify(message, vim.log.levels.INFO)
-end
-
-local function read_json(path, fallback)
-  if not path_exists(path) then
-    return fallback
-  end
-
-  local data = vim.fn.readfile(path)
-  if #data == 0 then
-    return fallback
-  end
-
-  local ok, parsed = pcall(vim.json.decode, table.concat(data, '\n'))
-  if not ok or type(parsed) ~= 'table' then
-    return fallback
-  end
-
-  return parsed
-end
-
-local function write_json(path, value)
-  ensure_dir(vim.fs.dirname(path))
-  local encoded = vim.json.encode(value)
-  vim.fn.writefile(vim.split(encoded, '\n'), path)
-end
-
-local function load_lock()
-  local lock = read_json(lockfile_path(), { parsers = {} })
-  if type(lock.parsers) ~= 'table' then
-    lock.parsers = {}
-  end
-  return lock
-end
-
-local function save_lock(lock)
-  write_json(lockfile_path(), lock)
-end
-
-local function normalize_spec(spec)
-  if type(spec) == 'string' then
-    spec = { src = spec }
-  end
-
-  vim.validate('spec', spec, 'table')
-  vim.validate('spec.src', spec.src, 'string')
-
-  local name = spec.name or basename(spec.src)
-  vim.validate('spec.name', name, 'string')
-  if name == '' then
-    error('`spec.name` must be a non-empty string', 3)
-  end
-
-  return {
-    src = spec.src,
-    name = name,
-    version = spec.version,
-    data = spec.data,
-    location = spec.location,
-    path = spec.path,
-    queries = spec.queries,
-    generate = spec.generate,
-    generate_from_json = spec.generate_from_json,
-  }
-end
-
-local function normalize_specs(specs)
-  assert_list('specs', specs)
-
-  local normalized = {}
-  local seen = {}
-  for _, spec in ipairs(specs) do
-    local parser = normalize_spec(spec)
-    local existing = seen[parser.name]
-    if existing then
-      if existing.src ~= parser.src then
-        error(('conflicting `src` for parser `%s`'):format(parser.name), 2)
-      end
-      if existing.version ~= parser.version then
-        error(('conflicting `version` for parser `%s`'):format(parser.name), 2)
-      end
-    else
-      seen[parser.name] = parser
-      normalized[#normalized + 1] = parser
-    end
-  end
-
-  return normalized
-end
+local async_operation = nil
 
 local function normalize_names(names)
   if names == nil then
@@ -314,7 +19,7 @@ local function normalize_names(names)
     return result
   end
 
-  assert_list('names', names)
+  spec.assert_list('names', names)
 
   local result = {}
   for _, name in ipairs(names) do
@@ -324,495 +29,164 @@ local function normalize_names(names)
   return result
 end
 
-local function remember_spec(spec)
-  if not active[spec.name] then
-    active_order[#active_order + 1] = spec.name
+local function remember_spec(parser)
+  if not active[parser.name] then
+    active_order[#active_order + 1] = parser.name
   end
-  active[spec.name] = vim.deepcopy(spec)
-end
-
-local function checkout_path(spec)
-  return joinpath(cache_dir(), spec.name)
-end
-
-local function checkout_lock_path(spec)
-  return joinpath(cache_dir(), '.locks', spec.name .. '.lock')
-end
-
-local function git_index_lock_path(path)
-  return joinpath(path, '.git', 'index.lock')
-end
-
-local function assert_git_unlocked(spec, path)
-  local lock = git_index_lock_path(path)
-  if path_exists(lock) then
-    error(
-      ('parser `%s` checkout is locked: %s; remove it only after confirming no git process is running'):format(
-        spec.name,
-        lock
-      ),
-      0
-    )
-  end
-end
-
-local function acquire_checkout_lock(spec)
-  local locks = joinpath(cache_dir(), '.locks')
-  ensure_dir(locks)
-
-  local path = checkout_lock_path(spec)
-  local ok, err = uv.fs_mkdir(path, 448)
-  if not ok then
-    if err == 'EEXIST' then
-      error(('parser `%s` checkout is already running: %s'):format(spec.name, path), 0)
-    end
-    error(
-      ('failed to lock parser `%s` checkout at %s: %s'):format(
-        spec.name,
-        path,
-        err or 'unknown error'
-      ),
-      0
-    )
-  end
-
-  return path
-end
-
-local function release_checkout_lock(path)
-  if path then
-    vim.fn.delete(path, 'rf')
-  end
-end
-
-local function with_checkout_lock(spec, fn)
-  local lock = acquire_checkout_lock(spec)
-  local ok, result = pcall(fn)
-  release_checkout_lock(lock)
-  if not ok then
-    error(result, 0)
-  end
-  return result
-end
-
-local function current_rev(path)
-  return vim.trim(git({ 'rev-parse', 'HEAD' }, path).stdout or '')
-end
-
-local function current_rev_async(path)
-  return vim.trim(async_git({ 'rev-parse', 'HEAD' }, path).stdout or '')
-end
-
-local function resolve_ref(spec, lock_entry, opts)
-  if opts and opts.target == 'version' then
-    return spec.version
-  end
-
-  if lock_entry and lock_entry.rev then
-    return lock_entry.rev
-  end
-
-  return spec.version
-end
-
-local function ensure_checkout(spec, ref, opts)
-  if spec.path then
-    return spec.path
-  end
-
-  return with_checkout_lock(spec, function()
-    local path = checkout_path(spec)
-    ensure_dir(cache_dir())
-
-    if not path_exists(path) then
-      if opts and opts.offline then
-        error(('parser `%s` is not checked out and `offline` is set'):format(spec.name), 0)
-      end
-      git({ 'clone', '--filter=blob:none', spec.src, path })
-    elseif not (opts and opts.offline) then
-      assert_git_unlocked(spec, path)
-      git({ 'fetch', '--tags', '--force' }, path)
-    end
-
-    if ref and ref ~= '' then
-      assert_git_unlocked(spec, path)
-      git({ 'checkout', '--detach', ref }, path)
-    end
-
-    return path
-  end)
-end
-
-local function ensure_checkout_async(spec, ref, opts)
-  if spec.path then
-    return spec.path
-  end
-
-  return with_checkout_lock(spec, function()
-    local path = checkout_path(spec)
-    ensure_dir(cache_dir())
-
-    if not path_exists(path) then
-      if opts and opts.offline then
-        error(('parser `%s` is not checked out and `offline` is set'):format(spec.name), 0)
-      end
-      async_git({ 'clone', '--filter=blob:none', spec.src, path })
-    elseif not (opts and opts.offline) then
-      assert_git_unlocked(spec, path)
-      async_git({ 'fetch', '--tags', '--force' }, path)
-    end
-
-    if ref and ref ~= '' then
-      assert_git_unlocked(spec, path)
-      async_git({ 'checkout', '--detach', ref }, path)
-    end
-
-    return path
-  end)
-end
-
-local function generate_parser(spec, root)
-  if not spec.generate then
-    return
-  end
-
-  local source = spec.generate_from_json == false and 'src/grammar.js' or 'src/grammar.json'
-  system({
-    'tree-sitter',
-    'generate',
-    '--abi',
-    tostring(vim.treesitter.language_version),
-    source,
-  }, { cwd = root, env = { TREE_SITTER_JS_RUNTIME = 'native' } })
-end
-
-local function generate_parser_async(spec, root)
-  if not spec.generate then
-    return
-  end
-
-  local source = spec.generate_from_json == false and 'src/grammar.js' or 'src/grammar.json'
-  async_system({
-    'tree-sitter',
-    'generate',
-    '--abi',
-    tostring(vim.treesitter.language_version),
-    source,
-  }, { cwd = root, env = { TREE_SITTER_JS_RUNTIME = 'native' } })
-end
-
-local function compile_parser(root)
-  local result = system_result({ 'tree-sitter', 'build', '-o', 'parser.so' }, { cwd = root })
-  if result.code == 0 then
-    return
-  end
-
-  local parser_c = joinpath(root, 'src', 'parser.c')
-  if not path_exists(parser_c) then
-    error(shell_error({ 'tree-sitter', 'build', '-o', 'parser.so' }, root, result), 0)
-  end
-
-  local cmd = { 'cc', '-fPIC', '-I', 'src', '-o', 'parser.so' }
-  if vim.fn.has('mac') == 1 then
-    cmd[#cmd + 1] = '-dynamiclib'
-  else
-    cmd[#cmd + 1] = '-shared'
-  end
-
-  cmd[#cmd + 1] = 'src/parser.c'
-  if path_exists(joinpath(root, 'src', 'scanner.c')) then
-    cmd[#cmd + 1] = 'src/scanner.c'
-  end
-  if path_exists(joinpath(root, 'src', 'scanner.cc')) then
-    cmd[#cmd + 1] = 'src/scanner.cc'
-  end
-
-  system(cmd, { cwd = root })
-end
-
-local function compile_parser_async(root)
-  local result = async_system_result({ 'tree-sitter', 'build', '-o', 'parser.so' }, { cwd = root })
-  if result.code == 0 then
-    return
-  end
-
-  local parser_c = joinpath(root, 'src', 'parser.c')
-  if not path_exists(parser_c) then
-    error(shell_error({ 'tree-sitter', 'build', '-o', 'parser.so' }, root, result), 0)
-  end
-
-  local cmd = { 'cc', '-fPIC', '-I', 'src', '-o', 'parser.so' }
-  if vim.fn.has('mac') == 1 then
-    cmd[#cmd + 1] = '-dynamiclib'
-  else
-    cmd[#cmd + 1] = '-shared'
-  end
-
-  cmd[#cmd + 1] = 'src/parser.c'
-  if path_exists(joinpath(root, 'src', 'scanner.c')) then
-    cmd[#cmd + 1] = 'src/scanner.c'
-  end
-  if path_exists(joinpath(root, 'src', 'scanner.cc')) then
-    cmd[#cmd + 1] = 'src/scanner.cc'
-  end
-
-  async_system(cmd, { cwd = root })
-end
-
-local function copy_file(src, dst)
-  ensure_dir(vim.fs.dirname(dst))
-  local tmp = dst .. '.tmp'
-  vim.fn.delete(tmp)
-  local ok, err = uv.fs_copyfile(src, tmp)
-  if not ok then
-    error(('failed to copy `%s` to `%s`: %s'):format(src, dst, err or 'unknown error'), 0)
-  end
-  vim.fn.rename(tmp, dst)
-end
-
-local function copy_tree(src, dst)
-  if not path_exists(src) then
-    error(('query source does not exist: %s'):format(src), 0)
-  end
-
-  vim.fn.delete(dst, 'rf')
-  ensure_dir(dst)
-  for name, type_ in vim.fs.dir(src) do
-    local from = joinpath(src, name)
-    local to = joinpath(dst, name)
-    if type_ == 'directory' then
-      copy_tree(from, to)
-    elseif type_ == 'file' then
-      copy_file(from, to)
-    end
-  end
-end
-
-local function materialize_queries(spec, source_root, opts)
-  if not spec.queries then
-    return
-  end
-
-  local src = spec.queries
-  if not vim.startswith(src, '/') then
-    src = joinpath(source_root, src)
-  end
-
-  copy_tree(src, joinpath(queries_dir(opts), spec.name))
-end
-
-local function install_parser(spec, opts)
-  opts = opts or {}
-
-  local lock = load_lock()
-  local lock_entry = lock.parsers[spec.name]
-  local ref = opts.target == 'lockfile' and lock_entry and lock_entry.rev
-    or resolve_ref(spec, lock_entry, opts)
-
-  local source_root = ensure_checkout(spec, ref, opts)
-  local build_root = source_root
-  if spec.location then
-    build_root = joinpath(build_root, spec.location)
-  end
-
-  generate_parser(spec, build_root)
-  compile_parser(build_root)
-
-  local rev = spec.path and (ref or spec.version or 'local') or current_rev(source_root)
-  local parser_path = joinpath(parser_dir(opts), spec.name .. '.so')
-  copy_file(joinpath(build_root, 'parser.so'), parser_path)
-  materialize_queries(spec, source_root, opts)
-
-  ensure_dir(parser_info_dir(opts))
-  vim.fn.writefile({ rev }, joinpath(parser_info_dir(opts), spec.name .. '.revision'))
-
-  lock.parsers[spec.name] = {
-    src = spec.src,
-    rev = rev,
-    version = spec.version,
-    data = spec.data,
-  }
-  save_lock(lock)
-
-  return {
-    active = true,
-    path = parser_path,
-    rev = rev,
-    spec = vim.deepcopy(spec),
-  }
-end
-
-local function install_parser_async(spec, opts)
-  opts = opts or {}
-
-  local lock = load_lock()
-  local lock_entry = lock.parsers[spec.name]
-  local ref = opts.target == 'lockfile' and lock_entry and lock_entry.rev
-    or resolve_ref(spec, lock_entry, opts)
-
-  local source_root = ensure_checkout_async(spec, ref, opts)
-  local build_root = source_root
-  if spec.location then
-    build_root = joinpath(build_root, spec.location)
-  end
-
-  generate_parser_async(spec, build_root)
-  compile_parser_async(build_root)
-
-  local rev = spec.path and (ref or spec.version or 'local') or current_rev_async(source_root)
-  local parser_path = joinpath(parser_dir(opts), spec.name .. '.so')
-  copy_file(joinpath(build_root, 'parser.so'), parser_path)
-  materialize_queries(spec, source_root, opts)
-
-  ensure_dir(parser_info_dir(opts))
-  vim.fn.writefile({ rev }, joinpath(parser_info_dir(opts), spec.name .. '.revision'))
-
-  lock.parsers[spec.name] = {
-    src = spec.src,
-    rev = rev,
-    version = spec.version,
-    data = spec.data,
-  }
-  save_lock(lock)
-
-  return {
-    active = true,
-    path = parser_path,
-    rev = rev,
-    spec = vim.deepcopy(spec),
-  }
+  active[parser.name] = vim.deepcopy(parser)
 end
 
 local function installed_rev(name, opts)
-  local path = joinpath(parser_info_dir(opts), name .. '.revision')
-  if not path_exists(path) then
+  local revision_path = path.parser_revision_path(name, opts)
+  if not fs.exists(revision_path) then
     return nil
   end
-  local lines = vim.fn.readfile(path)
+  local lines = vim.fn.readfile(revision_path)
   return lines[1]
 end
 
 local function info_for(name, opts)
-  local spec = active[name]
-  local parser_path = joinpath(parser_dir(opts), name .. '.so')
+  local parser = active[name]
+  local parser_path = path.parser_path(name, opts)
   local rev = installed_rev(name, opts)
 
   return {
-    active = spec ~= nil,
+    active = parser ~= nil,
     path = parser_path,
     rev = rev,
-    spec = spec and vim.deepcopy(spec) or nil,
+    spec = parser and vim.deepcopy(parser) or nil,
   }
 end
 
 local function add_info(result, name)
-  local lock = load_lock()
+  local lock = fs.load_lock()
   local entry = lock.parsers[name]
   if entry then
     result.src = entry.src
     result.version = entry.version
     result.data = entry.data
   end
-  result.installed = path_exists(result.path)
+  result.installed = fs.exists(result.path)
   return result
 end
 
-local function run_async_add(specs, opts)
+local function resume_async(thread, result)
+  vim.schedule(function()
+    local ok, err = coroutine.resume(thread, result)
+    if not ok then
+      async_running = false
+      local kind = async_operation or 'add'
+      async_operation = nil
+      vim.notify(('ts-pack async %s failed: %s'):format(kind, err), vim.log.levels.ERROR)
+    end
+  end)
+end
+
+process.set_async_resumer(resume_async)
+
+local function run_async_install(kind, specs, opts)
   if async_running then
-    vim.notify('ts-pack async add is already running; request ignored', vim.log.levels.WARN)
+    vim.notify(
+      ('ts-pack async %s is already running; request ignored'):format(kind),
+      vim.log.levels.WARN
+    )
     return
   end
 
   async_running = true
+  async_operation = kind
   opts = vim.deepcopy(opts or {})
   opts.async = nil
-  local report = start_install_report(#specs)
+  local install_report = report.start_install_report(#specs)
 
   local thread = coroutine.create(function()
-    for _, spec in ipairs(specs) do
-      local ok, err = pcall(install_parser_async, spec, opts)
+    for _, parser in ipairs(specs) do
+      local ok, err = pcall(install.install_async, parser, opts)
       if not ok then
         async_running = false
-        finish_install_report(report, true)
-        vim.notify(('ts-pack async add failed: %s'):format(err), vim.log.levels.ERROR)
+        async_operation = nil
+        report.finish_install_report(install_report, true)
+        vim.notify(('ts-pack async %s failed: %s'):format(kind, err), vim.log.levels.ERROR)
         return
       end
-      record_installed_parser(report, spec.name)
+      report.record_installed_parser(install_report, parser.name)
     end
     async_running = false
-    finish_install_report(report)
+    async_operation = nil
+    report.finish_install_report(install_report)
   end)
 
   local ok, err = coroutine.resume(thread)
   if not ok then
     async_running = false
-    finish_install_report(report, true)
-    vim.notify(('ts-pack async add failed: %s'):format(err), vim.log.levels.ERROR)
+    async_operation = nil
+    report.finish_install_report(install_report, true)
+    vim.notify(('ts-pack async %s failed: %s'):format(kind, err), vim.log.levels.ERROR)
   end
 end
 
 function M.add(specs, opts)
   opts = opts or {}
   local result = {}
-  local normalized = normalize_specs(specs)
+  local normalized = spec.normalize_specs(specs)
 
   if opts.async then
-    local lock = load_lock()
+    local lock = fs.load_lock()
     local pending = {}
 
-    for _, spec in ipairs(normalized) do
-      remember_spec(spec)
-      local item = info_for(spec.name, opts)
-      item.spec = vim.deepcopy(spec)
-      item.pending = not path_exists(joinpath(parser_dir(opts), spec.name .. '.so'))
+    for _, parser in ipairs(normalized) do
+      remember_spec(parser)
+      local item = info_for(parser.name, opts)
+      item.spec = vim.deepcopy(parser)
+      item.pending = not fs.exists(path.parser_path(parser.name, opts))
       if opts.info ~= false then
-        add_info(item, spec.name)
+        add_info(item, parser.name)
       end
-      if item.pending or not lock.parsers[spec.name] or opts.force or opts.target then
-        pending[#pending + 1] = spec
+      if item.pending or not lock.parsers[parser.name] or opts.force or opts.target then
+        pending[#pending + 1] = parser
       end
       result[#result + 1] = item
     end
     if #pending > 0 then
-      run_async_add(pending, opts)
+      run_async_install('add', pending, opts)
     end
     return result
   end
 
-  local report
-  for _, spec in ipairs(normalized) do
-    remember_spec(spec)
-    local lock_entry = load_lock().parsers[spec.name]
-    local installed = path_exists(joinpath(parser_dir(opts), spec.name .. '.so'))
+  local install_report
+  for _, parser in ipairs(normalized) do
+    remember_spec(parser)
+    local lock_entry = fs.load_lock().parsers[parser.name]
+    local installed = fs.exists(path.parser_path(parser.name, opts))
     if installed and lock_entry and not opts.force and not opts.target then
-      local item = info_for(spec.name, opts)
-      item.spec = vim.deepcopy(spec)
-      result[#result + 1] = add_info(item, spec.name)
+      local item = info_for(parser.name, opts)
+      item.spec = vim.deepcopy(parser)
+      result[#result + 1] = add_info(item, parser.name)
     else
-      report = report or start_install_report()
-      local ok, item = pcall(install_parser, spec, opts)
+      install_report = install_report or report.start_install_report()
+      local ok, item = pcall(install.install, parser, opts)
       if not ok then
-        finish_install_report(report, true)
+        report.finish_install_report(install_report, true)
         error(item, 0)
       end
-      record_installed_parser(report, spec.name)
+      report.record_installed_parser(install_report, parser.name)
       result[#result + 1] = item
     end
   end
 
-  finish_install_report(report)
+  report.finish_install_report(install_report)
   return result
 end
 
 function M.del(names, opts)
   opts = opts or {}
   local result = {}
-  local lock = load_lock()
+  local lock = fs.load_lock()
 
   for _, name in ipairs(normalize_names(names)) do
-    vim.fn.delete(joinpath(parser_dir(opts), name .. '.so'))
-    vim.fn.delete(joinpath(parser_info_dir(opts), name .. '.revision'))
-    vim.fn.delete(joinpath(queries_dir(opts), name), 'rf')
+    vim.fn.delete(path.parser_path(name, opts))
+    vim.fn.delete(path.parser_revision_path(name, opts))
+    vim.fn.delete(path.query_path(name, opts), 'rf')
     lock.parsers[name] = nil
     active[name] = nil
     result[#result + 1] = { name = name, deleted = true }
@@ -826,7 +200,7 @@ function M.del(names, opts)
   end
   active_order = remaining
 
-  save_lock(lock)
+  fs.save_lock(lock)
   return result
 end
 
@@ -849,24 +223,44 @@ function M.update(names, opts)
   opts = opts or {}
   local result = {}
   local normalized = normalize_names(names)
-  local report
+  local install_report
+
+  if opts.async then
+    local pending = {}
+
+    for _, name in ipairs(normalized) do
+      local parser = active[name]
+      if not parser then
+        error(('parser `%s` is not active; call add() with a full spec first'):format(name), 2)
+      end
+      local item = info_for(name, opts)
+      item.pending = true
+      pending[#pending + 1] = parser
+      result[#result + 1] = item
+    end
+
+    if #pending > 0 then
+      run_async_install('update', pending, opts)
+    end
+    return result
+  end
 
   for _, name in ipairs(normalized) do
-    local spec = active[name]
-    if not spec then
+    local parser = active[name]
+    if not parser then
       error(('parser `%s` is not active; call add() with a full spec first'):format(name), 2)
     end
-    report = report or start_install_report(#normalized)
-    local ok, item = pcall(install_parser, spec, opts)
+    install_report = install_report or report.start_install_report(#normalized)
+    local ok, item = pcall(install.install, parser, opts)
     if not ok then
-      finish_install_report(report, true)
+      report.finish_install_report(install_report, true)
       error(item, 0)
     end
-    record_installed_parser(report, spec.name)
+    report.record_installed_parser(install_report, parser.name)
     result[#result + 1] = item
   end
 
-  finish_install_report(report)
+  report.finish_install_report(install_report)
   return result
 end
 
