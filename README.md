@@ -43,6 +43,9 @@ Supported options follow `vim.pack` naming where they apply:
 - `target = 'version'` installs the spec `version`.
 - `target = 'lockfile'` restores the lockfile revision.
 - `info = false` keeps `get()` from reading extra lockfile/install metadata.
+- `async = true` registers the specs immediately and installs missing parsers in
+  a coroutine, yielding around clone/fetch/build subprocesses so startup does not
+  wait for parser installation.
 
 Parser artifacts are installed under `stdpath('data')/site`:
 

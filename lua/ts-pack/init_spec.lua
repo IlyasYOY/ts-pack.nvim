@@ -202,4 +202,56 @@ describe('ts-pack', function()
     assert.falsy(read_lock().parsers.fixture)
     assert.falsy(ts_pack.get({ 'fixture' }, { info = false })[1].active)
   end)
+
+  it('registers parsers and starts coroutine async add without installing inline', function()
+    local original_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, opts, _)
+      calls[#calls + 1] = { cmd = cmd, opts = opts }
+      return {}
+    end
+
+    local ok, result = pcall(function()
+      local ts_pack = require('ts-pack')
+      return ts_pack.add({
+        { src = '/tmp/tree-sitter-fixture', name = 'fixture', version = 'HEAD' },
+      }, { async = true, info = false })
+    end)
+    vim.system = original_system
+
+    assert.truthy(ok)
+    assert.equals(1, #calls)
+    assert.equals('git', calls[1].cmd[1])
+    assert.equals('clone', calls[1].cmd[2])
+    assert.truthy(result[1].active)
+    assert.truthy(result[1].pending)
+    assert.falsy(
+      vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'fixture.so'))
+    )
+  end)
+
+  it('logs only successfully installed parsers during async add', function()
+    local repo = make_parser_repo('fixture')
+    local original_notify = vim.notify
+    local messages = {}
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = repo, name = 'fixture', version = 'HEAD' },
+    }, { async = true })
+
+    local done = vim.wait(10000, function()
+      return vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'fixture.so'))
+        ~= nil
+    end)
+    vim.notify = original_notify
+
+    assert.truthy(done)
+    assert.equals(1, #messages)
+    assert.equals('ts-pack installed parser `fixture`', messages[1].message)
+    assert.equals(vim.log.levels.INFO, messages[1].level)
+  end)
 end)
