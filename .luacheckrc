@@ -2,6 +2,11 @@ std = 'luajit'
 
 globals = {
   'vim',
+  'describe',
+  'it',
+  'before_each',
+  'after_each',
+  'assert',
 }
 
 exclude_files = {
