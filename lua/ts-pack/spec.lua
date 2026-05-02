@@ -35,6 +35,7 @@ function M.normalize_spec(spec)
     name = name,
     version = spec.version,
     data = spec.data,
+    branch = spec.branch,
     location = spec.location,
     path = spec.path,
     queries = spec.queries,
@@ -57,6 +58,9 @@ function M.normalize_specs(specs)
       end
       if existing.version ~= parser.version then
         error(('conflicting `version` for parser `%s`'):format(parser.name), 2)
+      end
+      if existing.branch ~= parser.branch then
+        error(('conflicting `branch` for parser `%s`'):format(parser.name), 2)
       end
     else
       seen[parser.name] = parser

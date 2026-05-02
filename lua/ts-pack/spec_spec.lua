@@ -16,6 +16,7 @@ describe('ts-pack.spec', function()
       name = 'fixture',
       version = 'HEAD',
       data = { enabled = true },
+      branch = 'main',
       location = 'grammar',
       path = '/tmp/tree-sitter-fixture',
       queries = 'queries/fixture',
@@ -28,6 +29,7 @@ describe('ts-pack.spec', function()
       name = 'fixture',
       version = 'HEAD',
       data = { enabled = true },
+      branch = 'main',
       location = 'grammar',
       path = '/tmp/tree-sitter-fixture',
       queries = 'queries/fixture',
@@ -62,6 +64,15 @@ describe('ts-pack.spec', function()
     end)
     assert.falsy(ok)
     assert.truthy(err:match('conflicting `version` for parser `fixture`'))
+
+    ok, err = pcall(function()
+      spec.normalize_specs({
+        { src = '/tmp/tree-sitter-fixture', name = 'fixture', branch = 'one' },
+        { src = '/tmp/tree-sitter-fixture', name = 'fixture', branch = 'two' },
+      })
+    end)
+    assert.falsy(ok)
+    assert.truthy(err:match('conflicting `branch` for parser `fixture`'))
   end)
 
   it('requires list inputs for spec lists', function()

@@ -91,14 +91,34 @@ end
 
 function M.resolve_ref(spec, lock_entry, opts)
   if opts and opts.target == 'version' then
-    return spec.version
+    return spec.version or (spec.branch and ('origin/' .. spec.branch))
   end
 
   if lock_entry and lock_entry.rev then
     return lock_entry.rev
   end
 
-  return spec.version
+  return spec.version or (spec.branch and ('origin/' .. spec.branch))
+end
+
+local function clone_args(spec, target)
+  local args = { 'clone', '--filter=blob:none' }
+  if spec.branch then
+    vim.list_extend(args, { '--branch', spec.branch })
+  end
+  vim.list_extend(args, { spec.src, target })
+  return args
+end
+
+local function fetch_args(spec)
+  local args = { 'fetch', '--tags', '--force' }
+  if spec.branch then
+    vim.list_extend(args, {
+      'origin',
+      ('+refs/heads/%s:refs/remotes/origin/%s'):format(spec.branch, spec.branch),
+    })
+  end
+  return args
 end
 
 function M.ensure_checkout(spec, ref, opts)
@@ -114,10 +134,10 @@ function M.ensure_checkout(spec, ref, opts)
       if opts and opts.offline then
         error(('parser `%s` is not checked out and `offline` is set'):format(spec.name), 0)
       end
-      M.git({ 'clone', '--filter=blob:none', spec.src, target })
+      M.git(clone_args(spec, target))
     elseif not (opts and opts.offline) then
       M.assert_git_unlocked(spec, target)
-      M.git({ 'fetch', '--tags', '--force' }, target)
+      M.git(fetch_args(spec), target)
     end
 
     if ref and ref ~= '' then
@@ -142,10 +162,10 @@ function M.ensure_checkout_async(spec, ref, opts)
       if opts and opts.offline then
         error(('parser `%s` is not checked out and `offline` is set'):format(spec.name), 0)
       end
-      M.git_async({ 'clone', '--filter=blob:none', spec.src, target })
+      M.git_async(clone_args(spec, target))
     elseif not (opts and opts.offline) then
       M.assert_git_unlocked(spec, target)
-      M.git_async({ 'fetch', '--tags', '--force' }, target)
+      M.git_async(fetch_args(spec), target)
     end
 
     if ref and ref ~= '' then
