@@ -180,6 +180,20 @@ Deleting a parser removes:
 - `queries/<name>/`
 - the parser entry from `ts-pack-lock.json`
 
+## Indentation
+
+Tree-sitter indentation is available as an opt-in buffer-local `indentexpr`.
+Install a parser and an `indents.scm` query first, then enable it from an
+`ftplugin` or `FileType` autocommand:
+
+```lua
+vim.bo.indentexpr = "v:lua.require'ts-pack.indent'.expr()"
+```
+
+`ts-pack` does not enable indentation automatically. Library-selected parsers
+with bundled indent queries, or user specs with their own `queries` path, can be
+used by this expression after their queries are installed.
+
 Supported options follow `vim.pack` naming where they apply:
 
 - `offline = true` prevents git clone/fetch.
