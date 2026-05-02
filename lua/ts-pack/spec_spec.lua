@@ -20,6 +20,7 @@ describe('ts-pack.spec', function()
       location = 'grammar',
       path = '/tmp/tree-sitter-fixture',
       queries = 'queries/fixture',
+      bundled_queries = true,
       generate = true,
       generate_from_json = false,
     })
@@ -33,6 +34,7 @@ describe('ts-pack.spec', function()
       location = 'grammar',
       path = '/tmp/tree-sitter-fixture',
       queries = 'queries/fixture',
+      bundled_queries = true,
       generate = true,
       generate_from_json = false,
     }, parser)

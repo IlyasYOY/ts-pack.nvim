@@ -39,6 +39,7 @@ function M.normalize_spec(spec)
     location = spec.location,
     path = spec.path,
     queries = spec.queries,
+    bundled_queries = spec.bundled_queries,
     generate = spec.generate,
     generate_from_json = spec.generate_from_json,
   }

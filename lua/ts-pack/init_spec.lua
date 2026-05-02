@@ -249,6 +249,36 @@ describe('ts-pack', function()
     assert.falsy(ts_pack.get({ 'fixture' }, { info = false })[1].active)
   end)
 
+  it('does not materialize bundled queries for plain user specs', function()
+    local repo = make_parser_repo('c')
+    local ts_pack = require('ts-pack')
+
+    ts_pack.add({
+      { src = repo, name = 'c', version = 'HEAD' },
+    })
+
+    assert.falsy(vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'queries', 'c')))
+  end)
+
+  it('materializes bundled queries only for selected library specs', function()
+    local repo = make_parser_repo('c')
+    local ts_pack = require('ts-pack')
+
+    ts_pack.add({
+      { src = repo, name = 'c', version = 'HEAD', bundled_queries = true },
+    })
+
+    assert.truthy(
+      vim.uv.fs_stat(
+        vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'queries', 'c', 'highlights.scm')
+      )
+    )
+    assert.truthy(
+      vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'queries', 'c', 'indents.scm'))
+    )
+    assert.falsy(vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'queries', 'lua')))
+  end)
+
   it('registers parsers and starts coroutine async add without installing inline', function()
     local original_system = vim.system
     local calls = {}

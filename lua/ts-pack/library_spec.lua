@@ -116,6 +116,24 @@ describe('ts-pack.library', function()
     assert.equals('851e9cb257ba7c66cc8c14214a31c44d2f1e954e', selected[1].version)
   end)
 
+  it('marks only imported bundled query parsers', function()
+    local library = require('ts-pack.library')
+    local selected = library.select({ 'c', 'go', 'lua', 'markdown', 'bash' })
+    local marked = {}
+
+    for _, parser in ipairs(selected) do
+      marked[parser.name] = parser.bundled_queries
+    end
+
+    assert.equals(true, marked.c)
+    assert.equals(true, marked.go)
+    assert.equals(true, marked.lua)
+    assert.equals(true, marked.markdown)
+    assert.equals(true, marked.markdown_inline)
+    assert.falsy(marked.bash)
+    assert.falsy(selected[1].queries)
+  end)
+
   it('selects the current dotfiles parser set', function()
     local library = require('ts-pack.library')
     local selected = library.select(current_names)

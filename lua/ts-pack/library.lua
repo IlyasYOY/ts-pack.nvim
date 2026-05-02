@@ -1810,6 +1810,10 @@ local function append_selected(result, seen, visiting, name)
   local selected = vim.deepcopy(parser)
   selected.name = name
   selected.requires = nil
+  if require('ts-pack.queries').has_bundled(name) then
+    selected.queries = nil
+    selected.bundled_queries = true
+  end
   result[#result + 1] = selected
 end
 

@@ -99,6 +99,10 @@ Use `library.select(names)` to turn parser names into specs accepted by
 `ts_pack.add()`. The returned specs are deep copies and include each parser
 `name`. Parser dependencies from `requires` are expanded before the parser that
 needs them, duplicates are removed, and unknown parser names raise an error.
+For a small imported set, library-selected specs also install bundled
+`nvim-treesitter` queries alongside the parser. These bundled queries are scoped
+to `library.select()` output only; hand-written specs do not receive them unless
+they provide their own `queries` path.
 
 ```lua
 local ts_pack = require('ts-pack')
@@ -192,7 +196,8 @@ Parser artifacts are installed under `stdpath('data')/site`:
 
 - `parser/<name>.so`
 - `parser-info/<name>.revision`
-- `queries/<name>/` when `spec.queries` is provided
+- `queries/<name>/` when `spec.queries` is provided or a library-selected parser
+  has bundled queries
 
 The lockfile is written to:
 

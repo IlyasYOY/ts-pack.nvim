@@ -4,6 +4,7 @@ local build = require('ts-pack.build')
 local fs = require('ts-pack.fs')
 local git = require('ts-pack.git')
 local path = require('ts-pack.path')
+local queries = require('ts-pack.queries')
 
 local function materialize_queries(spec, source_root, opts)
   if not spec.queries then
@@ -39,6 +40,7 @@ local function install_with(spec, opts, ensure_checkout, generate, compile, curr
   local parser_path = path.parser_path(spec.name, opts)
   fs.copy_file(path.join(build_root, 'parser.so'), parser_path)
   materialize_queries(spec, source_root, opts)
+  queries.materialize_bundled(spec, opts)
 
   fs.ensure_dir(path.parser_info_dir(opts))
   vim.fn.writefile({ rev }, path.parser_revision_path(spec.name, opts))
