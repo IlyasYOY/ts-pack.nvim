@@ -192,3 +192,12 @@ Its shape is:
   }
 }
 ```
+
+## Acknowledgements
+
+`ts-pack.nvim` is built on ideas and implementation patterns from
+[`nvim-treesitter`](https://github.com/nvim-treesitter/nvim-treesitter), whose
+parser management code has been the main reference for this project.
+
+Many thanks to the `nvim-treesitter` maintainers and contributors for the years
+of work that made Tree-sitter in Neovim practical and approachable.
