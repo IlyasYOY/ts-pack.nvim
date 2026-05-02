@@ -201,3 +201,7 @@ parser management code has been the main reference for this project.
 
 Many thanks to the `nvim-treesitter` maintainers and contributors for the years
 of work that made Tree-sitter in Neovim practical and approachable.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
