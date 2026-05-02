@@ -49,6 +49,13 @@ local function make_parser_repo(lang)
   return root, rev
 end
 
+local function make_built_parser_root(lang)
+  local root = vim.fs.joinpath(test_home(), 'fixtures', 'built-' .. lang)
+  vim.fn.mkdir(root, 'p')
+  write(vim.fs.joinpath(root, 'parser.so'), { 'parser for ' .. lang })
+  return root
+end
+
 local function commit_second_revision(root)
   write(vim.fs.joinpath(root, 'README.md'), { 'second revision' })
   run({ 'git', 'add', '.' }, { cwd = root })
@@ -489,6 +496,93 @@ describe('ts-pack', function()
     assert.equals(1, #messages)
     assert.equals('ts-pack installed parsers: `first`, `second`', messages[1].message)
     assert.equals(vim.log.levels.INFO, messages[1].level)
+  end)
+
+  it('starts sync parser installs in parallel and waits for completion', function()
+    local original_system = vim.system
+    local original_available_parallelism = vim.uv.available_parallelism
+    local calls = {}
+    local in_flight = 0
+    local max_in_flight = 0
+
+    vim.uv.available_parallelism = function()
+      return 2
+    end
+    vim.system = function(cmd, opts, callback)
+      calls[#calls + 1] = { cmd = cmd, opts = opts, callback = callback }
+      in_flight = in_flight + 1
+      max_in_flight = math.max(max_in_flight, in_flight)
+      vim.schedule(function()
+        in_flight = in_flight - 1
+        callback({ code = 0, stdout = '', stderr = '' })
+      end)
+      return {}
+    end
+
+    local ts_pack = require('ts-pack')
+    local ok, result = pcall(function()
+      return ts_pack.add({
+        {
+          src = 'file://first',
+          path = make_built_parser_root('first'),
+          name = 'first',
+          generate = false,
+        },
+        {
+          src = 'file://second',
+          path = make_built_parser_root('second'),
+          name = 'second',
+          generate = false,
+        },
+        {
+          src = 'file://third',
+          path = make_built_parser_root('third'),
+          name = 'third',
+          generate = false,
+        },
+      }, { info = false })
+    end)
+
+    vim.uv.available_parallelism = original_available_parallelism
+    vim.system = original_system
+
+    assert.truthy(ok)
+    assert.equals(3, #calls)
+    assert.equals(2, max_in_flight)
+    assert.equals('first', result[1].spec.name)
+    assert.equals('second', result[2].spec.name)
+    assert.equals('third', result[3].spec.name)
+    assert.truthy(
+      vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'first.so'))
+    )
+    assert.truthy(
+      vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'second.so'))
+    )
+    assert.truthy(
+      vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'third.so'))
+    )
+  end)
+
+  it('keeps all sync parser entries in the lockfile', function()
+    local first = make_parser_repo('first')
+    local second = make_parser_repo('second')
+    local original_available_parallelism = vim.uv.available_parallelism
+
+    vim.uv.available_parallelism = function()
+      return 2
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = first, name = 'first', version = 'HEAD' },
+      { src = second, name = 'second', version = 'HEAD' },
+    })
+
+    vim.uv.available_parallelism = original_available_parallelism
+
+    local lock = read_lock()
+    assert.equals(first, lock.parsers.first.src)
+    assert.equals(second, lock.parsers.second.src)
   end)
 
   it('logs installed parsers once during update', function()

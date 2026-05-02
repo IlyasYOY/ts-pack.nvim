@@ -114,8 +114,10 @@ local function async_worker_count(total)
   return count
 end
 
-local function run_async_install(kind, specs, opts)
-  if async_running then
+local function run_install(kind, specs, opts, runner_opts)
+  runner_opts = runner_opts or {}
+
+  if runner_opts.background and async_running then
     vim.notify(
       ('ts-pack async %s is already running; request ignored'):format(kind),
       vim.log.levels.WARN
@@ -123,11 +125,15 @@ local function run_async_install(kind, specs, opts)
     return
   end
 
-  async_running = true
-  async_operation = kind
+  if runner_opts.background then
+    async_running = true
+    async_operation = kind
+  end
+
   opts = vim.deepcopy(opts or {})
   opts.async = nil
   local install_report = report.start_install_report(#specs)
+  local results = {}
   local parser_order = {}
   for index, parser in ipairs(specs) do
     parser_order[parser.name] = index
@@ -136,6 +142,7 @@ local function run_async_install(kind, specs, opts)
   local next_index = 1
   local active_workers = 0
   local failed_error
+  local done = false
 
   local function sort_report()
     table.sort(install_report.installed, function(left, right)
@@ -144,17 +151,23 @@ local function run_async_install(kind, specs, opts)
   end
 
   local function finish()
-    async_running = false
-    async_operation = nil
+    if runner_opts.background then
+      async_running = false
+      async_operation = nil
+    end
 
     sort_report()
     if failed_error then
       report.finish_install_report(install_report, true)
-      vim.notify(('ts-pack async %s failed: %s'):format(kind, failed_error), vim.log.levels.ERROR)
+      if runner_opts.background then
+        vim.notify(('ts-pack async %s failed: %s'):format(kind, failed_error), vim.log.levels.ERROR)
+      end
+      done = true
       return
     end
 
     report.finish_install_report(install_report)
+    done = true
   end
 
   local function worker_loop()
@@ -166,11 +179,12 @@ local function run_async_install(kind, specs, opts)
         break
       end
 
-      local ok, err = pcall(install.install_async, parser, opts)
+      local ok, item = pcall(install.install_async, parser, opts)
       if not ok then
-        failed_error = err
+        failed_error = item
         break
       end
+      results[index] = item
       report.record_installed_parser(install_report, parser.name)
     end
   end
@@ -199,58 +213,62 @@ local function run_async_install(kind, specs, opts)
   if active_workers == 0 then
     finish()
   end
+
+  if runner_opts.wait then
+    local completed = vim.wait(3600000, function()
+      return done
+    end, 10)
+
+    if not completed then
+      error(('ts-pack %s timed out waiting for parser installs'):format(kind), 0)
+    end
+    if failed_error then
+      error(failed_error, 0)
+    end
+    return results
+  end
 end
 
 function M.add(specs, opts)
   opts = opts or {}
   local result = {}
   local normalized = spec.normalize_specs(specs)
+  local lock = fs.load_lock()
+  local pending = {}
+  local pending_indexes = {}
+
+  for index, parser in ipairs(normalized) do
+    remember_spec(parser)
+    local item = info_for(parser.name, opts)
+    item.spec = vim.deepcopy(parser)
+    local is_pending = not fs.exists(path.parser_path(parser.name, opts))
+    if opts.async then
+      item.pending = is_pending
+    end
+    if opts.info ~= false then
+      add_info(item, parser.name)
+    end
+    if is_pending or not lock.parsers[parser.name] or opts.force or opts.target then
+      pending[#pending + 1] = parser
+      pending_indexes[#pending_indexes + 1] = index
+    end
+    result[#result + 1] = item
+  end
 
   if opts.async then
-    local lock = fs.load_lock()
-    local pending = {}
-
-    for _, parser in ipairs(normalized) do
-      remember_spec(parser)
-      local item = info_for(parser.name, opts)
-      item.spec = vim.deepcopy(parser)
-      item.pending = not fs.exists(path.parser_path(parser.name, opts))
-      if opts.info ~= false then
-        add_info(item, parser.name)
-      end
-      if item.pending or not lock.parsers[parser.name] or opts.force or opts.target then
-        pending[#pending + 1] = parser
-      end
-      result[#result + 1] = item
-    end
     if #pending > 0 then
-      run_async_install('add', pending, opts)
+      run_install('add', pending, opts, { background = true })
     end
     return result
   end
 
-  local install_report
-  for _, parser in ipairs(normalized) do
-    remember_spec(parser)
-    local lock_entry = fs.load_lock().parsers[parser.name]
-    local installed = fs.exists(path.parser_path(parser.name, opts))
-    if installed and lock_entry and not opts.force and not opts.target then
-      local item = info_for(parser.name, opts)
-      item.spec = vim.deepcopy(parser)
-      result[#result + 1] = add_info(item, parser.name)
-    else
-      install_report = install_report or report.start_install_report()
-      local ok, item = pcall(install.install, parser, opts)
-      if not ok then
-        report.finish_install_report(install_report, true)
-        error(item, 0)
-      end
-      report.record_installed_parser(install_report, parser.name)
-      result[#result + 1] = item
+  if #pending > 0 then
+    local installed = run_install('add', pending, opts, { wait = true })
+    for pending_index, item in ipairs(installed) do
+      result[pending_indexes[pending_index]] = item
     end
   end
 
-  report.finish_install_report(install_report)
   return result
 end
 
@@ -299,11 +317,9 @@ function M.update(names, opts)
   opts = opts or {}
   local result = {}
   local normalized = normalize_names(names)
-  local install_report
+  local pending = {}
 
   if opts.async then
-    local pending = {}
-
     for _, name in ipairs(normalized) do
       local parser = active[name]
       if not parser then
@@ -316,7 +332,7 @@ function M.update(names, opts)
     end
 
     if #pending > 0 then
-      run_async_install('update', pending, opts)
+      run_install('update', pending, opts, { background = true })
     end
     return result
   end
@@ -326,17 +342,13 @@ function M.update(names, opts)
     if not parser then
       error(('parser `%s` is not active; call add() with a full spec first'):format(name), 2)
     end
-    install_report = install_report or report.start_install_report(#normalized)
-    local ok, item = pcall(install.install, parser, opts)
-    if not ok then
-      report.finish_install_report(install_report, true)
-      error(item, 0)
-    end
-    report.record_installed_parser(install_report, parser.name)
-    result[#result + 1] = item
+    pending[#pending + 1] = parser
   end
 
-  report.finish_install_report(install_report)
+  if #pending > 0 then
+    result = run_install('update', pending, opts, { wait = true })
+  end
+
   return result
 end
 

@@ -25,6 +25,10 @@ function M.checkout_lock_path(spec)
   return path.join(path.cache_dir(), '.locks', spec.name .. '.lock')
 end
 
+local function checkout_lock_owner_path(lock)
+  return path.join(lock, 'owner.json')
+end
+
 function M.git_index_lock_path(target)
   return path.join(target, '.git', 'index.lock')
 end
@@ -42,6 +46,67 @@ function M.assert_git_unlocked(spec, target)
   end
 end
 
+local function is_exists_error(err)
+  return type(err) == 'string' and err:match('^EEXIST') ~= nil
+end
+
+local function write_checkout_lock_owner(spec, lock)
+  local owner = {
+    parser = spec.name,
+    lock = lock,
+    checkout = M.checkout_path(spec),
+    cwd = vim.fn.getcwd(),
+    created_at = os.date('!%Y-%m-%dT%H:%M:%SZ'),
+  }
+
+  if uv and type(uv.os_getpid) == 'function' then
+    local ok, pid = pcall(uv.os_getpid)
+    if ok then
+      owner.pid = pid
+    end
+  end
+
+  pcall(fs.write_json, checkout_lock_owner_path(lock), owner)
+end
+
+local function read_checkout_lock_owner(lock)
+  return fs.read_json(checkout_lock_owner_path(lock), nil)
+end
+
+local function checkout_lock_message(spec, lock, err)
+  local lines = {
+    ('parser `%s` checkout lock already exists: %s'):format(spec.name, lock),
+  }
+
+  local owner = read_checkout_lock_owner(lock)
+  if owner then
+    local details = {}
+    if owner.pid then
+      details[#details + 1] = ('pid=%s'):format(owner.pid)
+    end
+    if owner.created_at then
+      details[#details + 1] = ('created_at=%s'):format(owner.created_at)
+    end
+    if owner.cwd then
+      details[#details + 1] = ('cwd=%s'):format(owner.cwd)
+    end
+    if owner.checkout then
+      details[#details + 1] = ('checkout=%s'):format(owner.checkout)
+    end
+    if #details > 0 then
+      lines[#lines + 1] = 'lock owner: ' .. table.concat(details, ', ')
+    end
+  elseif err then
+    lines[#lines + 1] = ('lock error: %s'):format(err)
+  end
+
+  lines[#lines + 1] =
+    'check for active nvim, git, or tree-sitter processes before removing this lock directory'
+  lines[#lines + 1] = ('manual recovery: rm -rf %s'):format(lock)
+
+  return table.concat(lines, '\n')
+end
+
 function M.acquire_checkout_lock(spec)
   local locks = path.join(path.cache_dir(), '.locks')
   fs.ensure_dir(locks)
@@ -49,8 +114,8 @@ function M.acquire_checkout_lock(spec)
   local lock = M.checkout_lock_path(spec)
   local ok, err = uv.fs_mkdir(lock, 448)
   if not ok then
-    if err == 'EEXIST' then
-      error(('parser `%s` checkout is already running: %s'):format(spec.name, lock), 0)
+    if is_exists_error(err) then
+      error(checkout_lock_message(spec, lock, err), 0)
     end
     error(
       ('failed to lock parser `%s` checkout at %s: %s'):format(
@@ -62,6 +127,7 @@ function M.acquire_checkout_lock(spec)
     )
   end
 
+  write_checkout_lock_owner(spec, lock)
   return lock
 end
 
