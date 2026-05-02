@@ -212,6 +212,24 @@ describe('ts-pack', function()
     assert.truthy(info.rev)
   end)
 
+  it('registers filetype metadata for skipped installed parsers', function()
+    local repo = make_parser_repo('fixture_skip')
+    local ts_pack = require('ts-pack')
+
+    ts_pack.add({
+      { src = repo, name = 'fixture_skip' },
+    }, { info = false })
+    ts_pack.add({
+      {
+        src = repo,
+        name = 'fixture_skip',
+        data = { filetype = 'fixture-skip-ft' },
+      },
+    }, { info = false })
+
+    assert.equals('fixture_skip', vim.treesitter.language.get_lang('fixture-skip-ft'))
+  end)
+
   it('deletes parser, query, and lockfile artifacts', function()
     local repo = make_parser_repo('fixture')
     local ts_pack = require('ts-pack')
@@ -256,6 +274,26 @@ describe('ts-pack', function()
     assert.falsy(
       vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'fixture.so'))
     )
+  end)
+
+  it('registers filetype metadata immediately during async add', function()
+    local original_system = vim.system
+    vim.system = function()
+      return {}
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      {
+        src = '/tmp/tree-sitter-fixture-async-ft',
+        name = 'fixture_async_ft',
+        data = { filetype = { 'fixture-async-one', 'fixture-async-two' } },
+      },
+    }, { async = true, info = false })
+    vim.system = original_system
+
+    assert.equals('fixture_async_ft', vim.treesitter.language.get_lang('fixture-async-one'))
+    assert.equals('fixture_async_ft', vim.treesitter.language.get_lang('fixture-async-two'))
   end)
 
   it('starts async parser installs in parallel', function()

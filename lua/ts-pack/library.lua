@@ -12,6 +12,11 @@ M.registry = {
   angular = {
     src = 'https://github.com/dlvandenberg/tree-sitter-angular',
     version = 'f0d0685701b70883fa2dfe94ee7dc27965cab841',
+    data = {
+      filetype = {
+        'htmlangular',
+      },
+    },
     requires = {
       'html',
       'html_tags',
@@ -52,6 +57,11 @@ M.registry = {
   bash = {
     src = 'https://github.com/tree-sitter/tree-sitter-bash',
     version = 'a06c2e4415e9bc0346c6b86d401879ffb44058f7',
+    data = {
+      filetype = {
+        'sh',
+      },
+    },
     queries = 'queries',
   },
   bass = {
@@ -65,6 +75,11 @@ M.registry = {
   bibtex = {
     src = 'https://github.com/latex-lsp/tree-sitter-bibtex',
     version = '8d04ed27b3bc7929f14b7df9236797dab9f3fa66',
+    data = {
+      filetype = {
+        'bib',
+      },
+    },
   },
   bicep = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-bicep',
@@ -102,6 +117,12 @@ M.registry = {
   c_sharp = {
     src = 'https://github.com/tree-sitter/tree-sitter-c-sharp',
     version = '88366631d598ce6595ec655ce1591b315cffb14c',
+    data = {
+      filetype = {
+        'cs',
+        'csharp',
+      },
+    },
   },
   caddy = {
     src = 'https://github.com/opa-oz/tree-sitter-caddy',
@@ -139,10 +160,20 @@ M.registry = {
   commonlisp = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-commonlisp',
     version = '32323509b3d9fe96607d151c2da2c9009eb13a2f',
+    data = {
+      filetype = {
+        'lisp',
+      },
+    },
   },
   cooklang = {
     src = 'https://github.com/addcninblue/tree-sitter-cooklang',
     version = '4ebe237c1cf64cf3826fc249e9ec0988fe07e58e',
+    data = {
+      filetype = {
+        'cook',
+      },
+    },
   },
   corn = {
     src = 'https://github.com/jakestanger/tree-sitter-corn',
@@ -201,6 +232,11 @@ M.registry = {
   devicetree = {
     src = 'https://github.com/joelspadin/tree-sitter-devicetree',
     version = 'e685f1f6ac1702b046415efb476444167d63e41a',
+    data = {
+      filetype = {
+        'dts',
+      },
+    },
   },
   dhall = {
     src = 'https://github.com/jbellerb/tree-sitter-dhall',
@@ -209,6 +245,11 @@ M.registry = {
   diff = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-diff',
     version = '2520c3f934b3179bb540d23e0ef45f75304b5fed',
+    data = {
+      filetype = {
+        'gitdiff',
+      },
+    },
   },
   disassembly = {
     src = 'https://github.com/ColinKennedy/tree-sitter-disassembly',
@@ -256,10 +297,20 @@ M.registry = {
   eex = {
     src = 'https://github.com/connorlay/tree-sitter-eex',
     version = 'f742f2fe327463335e8671a87c0b9b396905d1d1',
+    data = {
+      filetype = {
+        'eelixir',
+      },
+    },
   },
   elixir = {
     src = 'https://github.com/elixir-lang/tree-sitter-elixir',
     version = '7937d3b4d65fa574163cfa59394515d3c1cf16f4',
+    data = {
+      filetype = {
+        'ex',
+      },
+    },
   },
   elm = {
     src = 'https://github.com/elm-tooling/tree-sitter-elm',
@@ -276,6 +327,11 @@ M.registry = {
   embedded_template = {
     src = 'https://github.com/tree-sitter/tree-sitter-embedded-template',
     version = '3499d85f0a0d937c507a4a65368f2f63772786e1',
+    data = {
+      filetype = {
+        'eruby',
+      },
+    },
   },
   enforce = {
     src = 'https://github.com/simonvic/tree-sitter-enforce',
@@ -284,14 +340,29 @@ M.registry = {
   erlang = {
     src = 'https://github.com/WhatsApp/tree-sitter-erlang',
     version = '1d78195c4fbb1fc027eb3e4220427f1eb8bfc89e',
+    data = {
+      filetype = {
+        'erl',
+      },
+    },
   },
   facility = {
     src = 'https://github.com/FacilityApi/tree-sitter-facility',
     version = 'e4bfd3e960de9f4b4648acb1c92e9b95b47d8cfb',
+    data = {
+      filetype = {
+        'fsd',
+      },
+    },
   },
   faust = {
     src = 'https://github.com/khiner/tree-sitter-faust',
     version = '122dd101919289ea809bad643712fcb483a1bed0',
+    data = {
+      filetype = {
+        'dsp',
+      },
+    },
   },
   fennel = {
     src = 'https://github.com/alexmozaidze/tree-sitter-fennel',
@@ -352,14 +423,29 @@ M.registry = {
   gdshader = {
     src = 'https://github.com/airblast-dev/tree-sitter-gdshader',
     version = '68268631c8b6dc093985f1246b099f81b30ea7d1',
+    data = {
+      filetype = {
+        'gdshaderinc',
+      },
+    },
   },
   git_config = {
     src = 'https://github.com/the-mikedavis/tree-sitter-git-config',
     version = '0fbc9f99d5a28865f9de8427fb0672d66f9d83a5',
+    data = {
+      filetype = {
+        'gitconfig',
+      },
+    },
   },
   git_rebase = {
     src = 'https://github.com/the-mikedavis/tree-sitter-git-rebase',
     version = '760ba8e34e7a68294ffb9c495e1388e030366188',
+    data = {
+      filetype = {
+        'gitrebase',
+      },
+    },
   },
   gitattributes = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-gitattributes',
@@ -380,10 +466,21 @@ M.registry = {
   glimmer = {
     src = 'https://github.com/ember-tooling/tree-sitter-glimmer',
     version = '88af85568bde3b91acb5d4c352ed094d0c1f9d84',
+    data = {
+      filetype = {
+        'handlebars',
+        'html.handlebars',
+      },
+    },
   },
   glimmer_javascript = {
     src = 'https://github.com/NullVoxPopuli/tree-sitter-glimmer-javascript',
     version = '5cc865a2a0a77cbfaf5062c8fcf2a9919bd54f87',
+    data = {
+      filetype = {
+        'javascript.glimmer',
+      },
+    },
     requires = {
       'ecma',
     },
@@ -391,6 +488,11 @@ M.registry = {
   glimmer_typescript = {
     src = 'https://github.com/NullVoxPopuli/tree-sitter-glimmer-typescript',
     version = '12d98944c1d5077b957cbdb90d663a7c4d50118c',
+    data = {
+      filetype = {
+        'typescript.glimmer',
+      },
+    },
     requires = {
       'typescript',
     },
@@ -422,6 +524,11 @@ M.registry = {
   godot_resource = {
     src = 'https://github.com/PrestonKnopp/tree-sitter-godot-resource',
     version = '302c1895f54bf74d53a08572f7b26a6614209adc',
+    data = {
+      filetype = {
+        'gdresource',
+      },
+    },
   },
   gomod = {
     src = 'https://github.com/camdencheek/tree-sitter-go-mod',
@@ -477,10 +584,20 @@ M.registry = {
   haskell = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-haskell',
     version = '7fa19f195803a77855f036ee7f49e4b22856e338',
+    data = {
+      filetype = {
+        'hs',
+      },
+    },
   },
   haskell_persistent = {
     src = 'https://github.com/MercuryTechnologies/tree-sitter-haskell-persistent',
     version = '577259b4068b2c281c9ebf94c109bd50a74d5857',
+    data = {
+      filetype = {
+        'haskellpersistent',
+      },
+    },
   },
   hcl = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-hcl',
@@ -552,10 +669,21 @@ M.registry = {
   idris = {
     src = 'https://github.com/kayhide/tree-sitter-idris',
     version = 'c56a25cf57c68ff929356db25505c1cc4c7820f6',
+    data = {
+      filetype = {
+        'idris2',
+      },
+    },
   },
   ini = {
     src = 'https://github.com/justinmk/tree-sitter-ini',
     version = 'e4018b5176132b4f3c5d6e61cea383f42288d0f5',
+    data = {
+      filetype = {
+        'confini',
+        'dosini',
+      },
+    },
   },
   inko = {
     src = 'https://github.com/inko-lang/tree-sitter-inko',
@@ -571,6 +699,11 @@ M.registry = {
   janet_simple = {
     src = 'https://github.com/sogaiu/tree-sitter-janet-simple',
     version = 'd183186995204314700be3e9e0a48053ea16b350',
+    data = {
+      filetype = {
+        'janet',
+      },
+    },
   },
   java = {
     src = 'https://github.com/tree-sitter/tree-sitter-java',
@@ -585,6 +718,15 @@ M.registry = {
   javascript = {
     src = 'https://github.com/tree-sitter/tree-sitter-javascript',
     version = '58404d8cf191d69f2674a8fd507bd5776f46cb11',
+    data = {
+      filetype = {
+        'javascriptreact',
+        'ecma',
+        'ecmascript',
+        'jsx',
+        'js',
+      },
+    },
     queries = 'queries',
     requires = {
       'ecma',
@@ -619,6 +761,11 @@ M.registry = {
   json = {
     src = 'https://github.com/tree-sitter/tree-sitter-json',
     version = '001c28d7a29832b06b0e831ec77845553c89b56d',
+    data = {
+      filetype = {
+        'jsonc',
+      },
+    },
   },
   json5 = {
     src = 'https://github.com/Joakker/tree-sitter-json5',
@@ -676,6 +823,11 @@ M.registry = {
   latex = {
     src = 'https://github.com/latex-lsp/tree-sitter-latex',
     version = '7e0ecdc02926c7b9b2e0c76003d4fe7b0944f957',
+    data = {
+      filetype = {
+        'tex',
+      },
+    },
     generate = true,
   },
   ledger = {
@@ -689,6 +841,11 @@ M.registry = {
   linkerscript = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-linkerscript',
     version = 'f99011a3554213b654985a4b0a65b3b032ec4621',
+    data = {
+      filetype = {
+        'ld',
+      },
+    },
   },
   liquid = {
     src = 'https://github.com/hankthetank27/tree-sitter-liquid',
@@ -724,14 +881,29 @@ M.registry = {
   m68k = {
     src = 'https://github.com/grahambates/tree-sitter-m68k',
     version = 'e128454c2210c0e0c10b68fe45ddb8fee80182a3',
+    data = {
+      filetype = {
+        'asm68k',
+      },
+    },
   },
   make = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-make',
     version = '70613f3d812cbabbd7f38d104d60a409c4008b43',
+    data = {
+      filetype = {
+        'automake',
+      },
+    },
   },
   markdown = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-markdown',
     version = 'f969cd3ae3f9fbd4e43205431d0ae286014c05b5',
+    data = {
+      filetype = {
+        'pandoc',
+      },
+    },
     location = 'tree-sitter-markdown',
     requires = {
       'markdown_inline',
@@ -766,6 +938,11 @@ M.registry = {
   muttrc = {
     src = 'https://github.com/neomutt/tree-sitter-muttrc',
     version = '173b0ab53a9c07962c9777189c4c70e90f1c1837',
+    data = {
+      filetype = {
+        'neomuttrc',
+      },
+    },
   },
   nasm = {
     src = 'https://github.com/naclsn/tree-sitter-nasm',
@@ -825,6 +1002,11 @@ M.registry = {
   ocaml_interface = {
     src = 'https://github.com/tree-sitter/tree-sitter-ocaml',
     version = '5a979b3ec7f1fe990b8e8c4412294a0cf7228e45',
+    data = {
+      filetype = {
+        'ocamlinterface',
+      },
+    },
     location = 'grammars/interface',
     requires = {
       'ocaml',
@@ -854,6 +1036,11 @@ M.registry = {
   perl = {
     src = 'https://github.com/tree-sitter-perl/tree-sitter-perl',
     version = 'ea9667dc65a816acace002a2b1b099978785ca33',
+    data = {
+      filetype = {
+        'pl',
+      },
+    },
     generate = true,
   },
   php = {
@@ -893,6 +1080,11 @@ M.registry = {
   poe_filter = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-poe-filter',
     version = '205a7d576984feb38a9fc2d8cfe729617f9e0548',
+    data = {
+      filetype = {
+        'poefilter',
+      },
+    },
   },
   pony = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-pony',
@@ -901,6 +1093,11 @@ M.registry = {
   powershell = {
     src = 'https://github.com/airbus-cert/tree-sitter-powershell',
     version = '73800ecc8bddeee8f1079a5a2e0c13c3d00269bb',
+    data = {
+      filetype = {
+        'ps1',
+      },
+    },
   },
   printf = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-printf',
@@ -930,6 +1127,11 @@ M.registry = {
   properties = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-properties',
     version = '6310671b24d4e04b803577b1c675d765cbd5773b',
+    data = {
+      filetype = {
+        'jproperties',
+      },
+    },
   },
   proto = {
     src = 'https://github.com/coder3101/tree-sitter-proto',
@@ -966,6 +1168,12 @@ M.registry = {
   python = {
     src = 'https://github.com/tree-sitter/tree-sitter-python',
     version = 'v0.25.0',
+    data = {
+      filetype = {
+        'py',
+        'gyp',
+      },
+    },
   },
   ql = {
     src = 'https://github.com/tree-sitter/tree-sitter-ql',
@@ -978,6 +1186,11 @@ M.registry = {
   qmljs = {
     src = 'https://github.com/yuja/tree-sitter-qmljs',
     version = '0bec4359a7eb2f6c9220cd57372d87d236f66d59',
+    data = {
+      filetype = {
+        'qml',
+      },
+    },
     requires = {
       'ecma',
     },
@@ -1069,6 +1282,11 @@ M.registry = {
   runescript = {
     src = 'https://github.com/2004Scape/tree-sitter-runescript',
     version = 'cf85bbd5da0c5ad243301d889c7f84d790a4cae4',
+    data = {
+      filetype = {
+        'clientscript',
+      },
+    },
   },
   rust = {
     src = 'https://github.com/tree-sitter/tree-sitter-rust',
@@ -1077,6 +1295,11 @@ M.registry = {
   scala = {
     src = 'https://github.com/tree-sitter/tree-sitter-scala',
     version = '14c5cfd2b8e0f057ba0f4f72ee4812b0ae6cdce3',
+    data = {
+      filetype = {
+        'sbt',
+      },
+    },
   },
   scfg = {
     src = 'https://github.com/rockorager/tree-sitter-scfg',
@@ -1101,6 +1324,11 @@ M.registry = {
   slang = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-slang',
     version = '1dbcc4abc7b3cdd663eb03d93031167d6ed19f56',
+    data = {
+      filetype = {
+        'shaderslang',
+      },
+    },
   },
   slim = {
     src = 'https://github.com/theoo/tree-sitter-slim',
@@ -1164,10 +1392,20 @@ M.registry = {
   ssh_config = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-ssh-config',
     version = '71d2693deadaca8cdc09e38ba41d2f6042da1616',
+    data = {
+      filetype = {
+        'sshconfig',
+      },
+    },
   },
   starlark = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-starlark',
     version = 'a453dbf3ba433db0e5ec621a38a7e59d72e4dc69',
+    data = {
+      filetype = {
+        'bzl',
+      },
+    },
   },
   strace = {
     src = 'https://github.com/sigmaSd/tree-sitter-strace',
@@ -1189,6 +1427,11 @@ M.registry = {
   surface = {
     src = 'https://github.com/connorlay/tree-sitter-surface',
     version = 'f4586b35ac8548667a9aaa4eae44456c1f43d032',
+    data = {
+      filetype = {
+        'sface',
+      },
+    },
   },
   svelte = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-svelte',
@@ -1217,10 +1460,20 @@ M.registry = {
   systemverilog = {
     src = 'https://github.com/gmlarumbe/tree-sitter-systemverilog',
     version = '293928578cb27fbd0005fcc5f09c09a1e8628c89',
+    data = {
+      filetype = {
+        'verilog',
+      },
+    },
   },
   t32 = {
     src = 'https://github.com/xasc/tree-sitter-t32',
     version = '3bce3977303c3f88bfa9fcdfcfd1a4f8f6ffa0b0',
+    data = {
+      filetype = {
+        'trace32',
+      },
+    },
   },
   tablegen = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-tablegen',
@@ -1233,6 +1486,11 @@ M.registry = {
   tcl = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-tcl',
     version = '8f11ac7206a54ed11210491cee1e0657e2962c47',
+    data = {
+      filetype = {
+        'expect',
+      },
+    },
   },
   teal = {
     src = 'https://github.com/euclidianAce/tree-sitter-teal',
@@ -1250,6 +1508,11 @@ M.registry = {
   terraform = {
     src = 'https://github.com/MichaHoffmann/tree-sitter-hcl',
     version = '64ad62785d442eb4d45df3a1764962dafd5bc98b',
+    data = {
+      filetype = {
+        'terraform-vars',
+      },
+    },
     location = 'dialects/terraform',
     requires = {
       'hcl',
@@ -1258,6 +1521,11 @@ M.registry = {
   textproto = {
     src = 'https://github.com/PorterAtGoogle/tree-sitter-textproto',
     version = '568471b80fd8793d37ed01865d8c2208a9fefd1b',
+    data = {
+      filetype = {
+        'pbtxt',
+      },
+    },
   },
   thrift = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-thrift',
@@ -1270,6 +1538,11 @@ M.registry = {
   tlaplus = {
     src = 'https://github.com/tlaplus-community/tree-sitter-tlaplus',
     version = 'add40814fda369f6efd989977b2c498aaddde984',
+    data = {
+      filetype = {
+        'tla',
+      },
+    },
   },
   tmux = {
     src = 'https://github.com/Freed-Wu/tree-sitter-tmux',
@@ -1291,6 +1564,12 @@ M.registry = {
   tsx = {
     src = 'https://github.com/tree-sitter/tree-sitter-typescript',
     version = '75b3874edb2dc714fb1fd77a32013d0f8699989f',
+    data = {
+      filetype = {
+        'typescriptreact',
+        'typescript.tsx',
+      },
+    },
     location = 'tsx',
     requires = {
       'ecma',
@@ -1309,6 +1588,11 @@ M.registry = {
   typescript = {
     src = 'https://github.com/tree-sitter/tree-sitter-typescript',
     version = '75b3874edb2dc714fb1fd77a32013d0f8699989f',
+    data = {
+      filetype = {
+        'ts',
+      },
+    },
     location = 'typescript',
     requires = {
       'ecma',
@@ -1325,10 +1609,20 @@ M.registry = {
   typst = {
     src = 'https://github.com/uben0/tree-sitter-typst',
     version = '46cf4ded12ee974a70bf8457263b67ad7ee0379d',
+    data = {
+      filetype = {
+        'typ',
+      },
+    },
   },
   udev = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-udev',
     version = '2fcb563a4d56a6b8e8c129252325fc6335e4acbf',
+    data = {
+      filetype = {
+        'udevrules',
+      },
+    },
   },
   ungrammar = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-ungrammar',
@@ -1346,10 +1640,21 @@ M.registry = {
   uxntal = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-uxntal',
     version = 'ad9b638b914095320de85d59c49ab271603af048',
+    data = {
+      filetype = {
+        'tal',
+        'uxn',
+      },
+    },
   },
   v = {
     src = 'https://github.com/vlang/v-analyzer',
     version = '095865df4b9ddd21e376d635586c663d5a736f71',
+    data = {
+      filetype = {
+        'vlang',
+      },
+    },
     location = 'tree_sitter_v',
   },
   vala = {
@@ -1367,6 +1672,11 @@ M.registry = {
   vhs = {
     src = 'https://github.com/charmbracelet/tree-sitter-vhs',
     version = '0c6fae9d2cfc5b217bfd1fe84a7678f5917116db',
+    data = {
+      filetype = {
+        'tape',
+      },
+    },
   },
   vim = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-vim',
@@ -1414,6 +1724,13 @@ M.registry = {
   xml = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-xml',
     version = '5000ae8f22d11fbe93939b05c1e37cf21117162d',
+    data = {
+      filetype = {
+        'xsd',
+        'xslt',
+        'svg',
+      },
+    },
     location = 'xml',
     requires = {
       'dtd',
@@ -1422,6 +1739,11 @@ M.registry = {
   xresources = {
     src = 'https://github.com/ValdezFOmar/tree-sitter-xresources',
     version = 'v1.0.0',
+    data = {
+      filetype = {
+        'xdefaults',
+      },
+    },
   },
   yaml = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-yaml',

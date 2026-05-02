@@ -1,6 +1,7 @@
 local M = {}
 
 local fs = require('ts-pack.fs')
+local hooks = require('ts-pack.hooks')
 local install = require('ts-pack.install')
 local path = require('ts-pack.path')
 local process = require('ts-pack.process')
@@ -36,6 +37,10 @@ local function remember_spec(parser)
     active_order[#active_order + 1] = parser.name
   end
   active[parser.name] = vim.deepcopy(parser)
+end
+
+local function apply_hooks(parser)
+  hooks.apply(parser)
 end
 
 local function installed_rev(name, opts)
@@ -185,6 +190,7 @@ local function run_install(kind, specs, opts, runner_opts)
         break
       end
       results[index] = item
+      apply_hooks(parser)
       report.record_installed_parser(install_report, parser.name)
     end
   end
@@ -239,6 +245,7 @@ function M.add(specs, opts)
 
   for index, parser in ipairs(normalized) do
     remember_spec(parser)
+    apply_hooks(parser)
     local item = info_for(parser.name, opts)
     item.spec = vim.deepcopy(parser)
     local is_pending = not fs.exists(path.parser_path(parser.name, opts))

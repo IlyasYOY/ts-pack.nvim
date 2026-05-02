@@ -72,11 +72,18 @@ describe('ts-pack.library', function()
       name = 'bash',
       src = 'https://github.com/tree-sitter/tree-sitter-bash',
       version = 'a06c2e4415e9bc0346c6b86d401879ffb44058f7',
+      data = {
+        filetype = {
+          'sh',
+        },
+      },
       queries = 'queries',
     }, selected[1])
 
     selected[1].version = 'changed'
+    selected[1].data.filetype[1] = 'changed'
     assert.equals('a06c2e4415e9bc0346c6b86d401879ffb44058f7', library.select({ 'bash' })[1].version)
+    assert.equals('sh', library.select({ 'bash' })[1].data.filetype[1])
   end)
 
   it('rejects unknown parser names', function()
@@ -96,6 +103,7 @@ describe('ts-pack.library', function()
 
     assert.equals('typescript', selected[1].name)
     assert.equals('tsx', selected[2].name)
+    assert.same({ 'typescriptreact', 'typescript.tsx' }, selected[2].data.filetype)
     assert.equals(2, #selected)
     assert.falsy(selected[2].requires)
   end)

@@ -15,6 +15,10 @@ ts_pack.add({
     name = 'lua',
     version = 'main',
     branch = nil,
+    data = {
+      -- Optional parser metadata.
+      filetype = nil,
+    },
 
     -- Optional parser build fields.
     location = nil,
@@ -27,7 +31,8 @@ ts_pack.add({
 ```
 
 Keep the same `add()` call in your config. It registers the parser specs for
-the current session and installs missing parser artifacts.
+the current session, applies parser metadata such as filetype associations, and
+installs missing parser artifacts.
 
 If you do not want to write every parser spec by hand, use the optional parser
 library:
@@ -59,6 +64,22 @@ specs for the same parser name must agree on `src`, `version`, and `branch`.
 `names` is an optional list of parser names; if omitted, the active parsers from
 the current session are used.
 
+Set `data.filetype` when a parser should be used for filetypes that do not match
+the parser name. The value may be a string or a list of strings and is registered
+with `vim.treesitter.language.register()` during `add()`:
+
+```lua
+ts_pack.add({
+  {
+    src = 'https://github.com/tree-sitter/tree-sitter-typescript',
+    name = 'tsx',
+    data = {
+      filetype = { 'typescriptreact', 'typescript.tsx' },
+    },
+  },
+})
+```
+
 ## Parser library
 
 `require('ts-pack.library')` exposes a bundled registry of upstream parser specs:
@@ -70,6 +91,7 @@ library.registry.lua
 -- {
 --   src = 'https://github.com/tree-sitter/tree-sitter-lua',
 --   version = '...',
+--   data = { filetype = ... },
 -- }
 ```
 
