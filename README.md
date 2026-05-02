@@ -205,6 +205,8 @@ Supported options follow `vim.pack` naming where they apply:
   a coroutine when passed to `add()`. It updates active parsers in a coroutine
   when passed to `update()`. Both paths yield around clone/fetch/build
   subprocesses so startup does not wait for parser installation.
+- `quiet = true` hides install progress and installed-parser summaries while
+  preserving warnings and errors.
 
 Parser artifacts are installed under `stdpath('data')/site`:
 

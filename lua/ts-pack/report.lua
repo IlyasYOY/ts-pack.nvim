@@ -31,12 +31,17 @@ local function echo_install_progress(report, message, status, percent)
   end
 end
 
-function M.start_install_report(total)
+function M.start_install_report(total, opts)
+  opts = opts or {}
   local item = {
     installed = {},
+    quiet = opts.quiet,
     total = total,
   }
 
+  if opts.quiet then
+    return item
+  end
   if vim.fn.has('nvim-0.12') ~= 1 then
     return item
   end
@@ -82,6 +87,9 @@ function M.finish_install_report(item, failed)
 
   local message = M.install_summary_message(item.installed)
   echo_install_progress(item, message, failed and 'failure' or 'success', failed and nil or 100)
+  if item.quiet then
+    return
+  end
   vim.notify(message, vim.log.levels.INFO)
 end
 

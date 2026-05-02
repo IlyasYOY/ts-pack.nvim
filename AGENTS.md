@@ -10,6 +10,7 @@
 - `make format-check`: verify formatting without rewriting files.
 - `make lint`: run Luacheck with the repository `.luacheckrc`.
 - `make test`: run the headless Neovim test harness with isolated XDG paths under `.test-home`.
+- `make test-verbose`: run the same harness while printing each successful test.
 - `make check`: run formatting, lint, and tests; use this as the main regression gate before handing off changes.
 
 Required local tools are `nvim`, `stylua`, and `luacheck`. The tests create temporary parser git repositories, so `git` must also be available.
@@ -21,6 +22,8 @@ Use two-space indentation, LF line endings, and a final newline, matching `.edit
 ## Testing Guidelines
 
 Add or update `*_spec.lua` files beside the module under test. The harness provides `describe`, `it`, `before_each`, `after_each`, and `assert.*`; keep tests deterministic and isolated through the existing reset helpers. For lockfile or report formatting changes, assert exact serialized output where practical instead of only round-tripping decoded data. Run `make check` after behavior changes.
+
+Name test groups so runner output includes the module or public surface under test, for example `describe('ts-pack.report', ...)` or `describe('ts-pack.query_highlights', ...)`, rather than generic labels such as `bundled highlight queries`.
 
 ## Commit & Pull Request Guidelines
 

@@ -130,7 +130,7 @@ local function check_file(lang, file)
   end
 end
 
-describe('bundled highlight queries', function()
+describe('ts-pack.query_highlights', function()
   before_each(function()
     require('ts-pack.queries').register_predicates()
   end)

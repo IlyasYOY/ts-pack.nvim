@@ -71,6 +71,16 @@ local function read_lock()
   return vim.json.decode(table.concat(vim.fn.readfile(lockfile()), '\n'))
 end
 
+local function stub_progress_echo()
+  local original_echo = vim.api.nvim_echo
+  vim.api.nvim_echo = function()
+    return 42
+  end
+  return function()
+    vim.api.nvim_echo = original_echo
+  end
+end
+
 before_each(reset)
 
 describe('ts-pack', function()
@@ -104,7 +114,7 @@ describe('ts-pack', function()
         generate = false,
         generate_from_json = true,
       },
-    })
+    }, { quiet = true })
 
     local info = ts_pack.get({ 'fixture' }, { info = false })[1]
     assert.truthy(info.active)
@@ -130,7 +140,7 @@ describe('ts-pack', function()
 
     ts_pack.add({
       { src = repo, name = 'fixture', version = 'HEAD', queries = 'queries/fixture' },
-    })
+    }, { quiet = true })
 
     local lock = read_lock()
     assert.equals(lockfile(), vim.fs.joinpath(vim.fn.stdpath('config'), 'ts-pack-lock.json'))
@@ -153,9 +163,9 @@ describe('ts-pack', function()
 
     ts_pack.add({
       { src = repo, name = 'fixture', version = rev },
-    })
+    }, { quiet = true })
     commit_second_revision(repo)
-    ts_pack.update({ 'fixture' }, { target = 'lockfile' })
+    ts_pack.update({ 'fixture' }, { target = 'lockfile', quiet = true })
 
     local lock = read_lock()
     assert.equals(rev, lock.parsers.fixture.rev)
@@ -168,7 +178,7 @@ describe('ts-pack', function()
     local ok, err = pcall(function()
       ts_pack.add({
         { src = repo, name = 'fixture' },
-      }, { offline = true })
+      }, { offline = true, quiet = true })
     end)
 
     assert.falsy(ok)
@@ -185,7 +195,7 @@ describe('ts-pack', function()
     local ok, err = pcall(function()
       ts_pack.add({
         { src = repo, name = 'fixture', version = 'HEAD' },
-      })
+      }, { quiet = true })
     end)
 
     assert.falsy(ok)
@@ -202,7 +212,7 @@ describe('ts-pack', function()
 
     ts_pack.add({
       { src = repo, name = 'fixture', data = { enabled = true } },
-    })
+    }, { quiet = true })
 
     local info = ts_pack.get({ 'fixture' })[1]
     assert.truthy(info.active)
@@ -218,14 +228,14 @@ describe('ts-pack', function()
 
     ts_pack.add({
       { src = repo, name = 'fixture_skip' },
-    }, { info = false })
+    }, { info = false, quiet = true })
     ts_pack.add({
       {
         src = repo,
         name = 'fixture_skip',
         data = { filetype = 'fixture-skip-ft' },
       },
-    }, { info = false })
+    }, { info = false, quiet = true })
 
     assert.equals('fixture_skip', vim.treesitter.language.get_lang('fixture-skip-ft'))
   end)
@@ -236,7 +246,7 @@ describe('ts-pack', function()
 
     ts_pack.add({
       { src = repo, name = 'fixture', queries = 'queries/fixture' },
-    })
+    }, { quiet = true })
     ts_pack.del({ 'fixture' })
 
     assert.falsy(
@@ -255,7 +265,7 @@ describe('ts-pack', function()
 
     ts_pack.add({
       { src = repo, name = 'c', version = 'HEAD' },
-    })
+    }, { quiet = true })
 
     assert.falsy(vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'queries', 'c')))
   end)
@@ -266,7 +276,7 @@ describe('ts-pack', function()
 
     ts_pack.add({
       { src = repo, name = 'c', version = 'HEAD', bundled_queries = true },
-    })
+    }, { quiet = true })
 
     assert.truthy(
       vim.uv.fs_stat(
@@ -291,7 +301,7 @@ describe('ts-pack', function()
       local ts_pack = require('ts-pack')
       return ts_pack.add({
         { src = '/tmp/tree-sitter-fixture', name = 'fixture', version = 'HEAD' },
-      }, { async = true, info = false })
+      }, { async = true, info = false, quiet = true })
     end)
     vim.system = original_system
 
@@ -319,7 +329,7 @@ describe('ts-pack', function()
         name = 'fixture_async_ft',
         data = { filetype = { 'fixture-async-one', 'fixture-async-two' } },
       },
-    }, { async = true, info = false })
+    }, { async = true, info = false, quiet = true })
     vim.system = original_system
 
     assert.equals('fixture_async_ft', vim.treesitter.language.get_lang('fixture-async-one'))
@@ -351,7 +361,7 @@ describe('ts-pack', function()
       { src = '/tmp/tree-sitter-first', name = 'first', version = 'HEAD' },
       { src = '/tmp/tree-sitter-second', name = 'second', version = 'HEAD' },
       { src = '/tmp/tree-sitter-third', name = 'third', version = 'HEAD' },
-    }, { async = true, info = false })
+    }, { async = true, info = false, quiet = true })
 
     assert.equals(2, #calls)
     assert.equals('clone', calls[1].cmd[2])
@@ -396,7 +406,7 @@ describe('ts-pack', function()
     ts_pack.add({
       { src = '/tmp/tree-sitter-first', name = 'first', version = 'HEAD' },
       { src = '/tmp/tree-sitter-second', name = 'second', version = 'HEAD' },
-    }, { async = true, info = false })
+    }, { async = true, info = false, quiet = true })
 
     assert.equals(2, #calls)
 
@@ -417,6 +427,7 @@ describe('ts-pack', function()
 
   it('logs installed parsers once during async add', function()
     local repo = make_parser_repo('fixture')
+    local restore_echo = stub_progress_echo()
     local original_notify = vim.notify
     local messages = {}
     vim.notify = function(message, level)
@@ -432,6 +443,7 @@ describe('ts-pack', function()
       return vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'fixture.so'))
         ~= nil
     end)
+    restore_echo()
     vim.notify = original_notify
 
     assert.truthy(done)
@@ -443,6 +455,7 @@ describe('ts-pack', function()
   it('logs all installed parsers in one async summary', function()
     local first = make_parser_repo('first')
     local second = make_parser_repo('second')
+    local restore_echo = stub_progress_echo()
     local original_notify = vim.notify
     local messages = {}
     vim.notify = function(message, level)
@@ -461,12 +474,36 @@ describe('ts-pack', function()
         and vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'second.so'))
           ~= nil
     end)
+    restore_echo()
     vim.notify = original_notify
 
     assert.truthy(done)
     assert.equals(1, #messages)
     assert.equals('ts-pack installed parsers: `first`, `second`', messages[1].message)
     assert.equals(vim.log.levels.INFO, messages[1].level)
+  end)
+
+  it('suppresses progress summaries during quiet async add', function()
+    local repo = make_parser_repo('fixture')
+    local original_notify = vim.notify
+    local messages = {}
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = repo, name = 'fixture', version = 'HEAD' },
+    }, { async = true, quiet = true })
+
+    local done = vim.wait(10000, function()
+      return vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'fixture.so'))
+        ~= nil
+    end)
+    vim.notify = original_notify
+
+    assert.truthy(done)
+    assert.equals(0, #messages)
   end)
 
   it('keeps all async parser entries in the lockfile', function()
@@ -482,7 +519,7 @@ describe('ts-pack', function()
     ts_pack.add({
       { src = first, name = 'first', version = 'HEAD' },
       { src = second, name = 'second', version = 'HEAD' },
-    }, { async = true })
+    }, { async = true, quiet = true })
 
     local done = vim.wait(10000, function()
       local parser_dir = vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser')
@@ -500,6 +537,7 @@ describe('ts-pack', function()
 
   it('logs partial async installs before an async failure', function()
     local repo = make_parser_repo('fixture')
+    local restore_echo = stub_progress_echo()
     local original_notify = vim.notify
     local messages = {}
     vim.notify = function(message, level)
@@ -515,6 +553,7 @@ describe('ts-pack', function()
     local done = vim.wait(10000, function()
       return #messages == 2
     end)
+    restore_echo()
     vim.notify = original_notify
 
     assert.truthy(done)
@@ -529,7 +568,7 @@ describe('ts-pack', function()
     local ts_pack = require('ts-pack')
     ts_pack.add({
       { src = repo, name = 'fixture', version = 'HEAD' },
-    })
+    }, { quiet = true })
 
     local original_notify = vim.notify
     local messages = {}
@@ -548,6 +587,7 @@ describe('ts-pack', function()
   it('logs installed parsers once during sync add', function()
     local first = make_parser_repo('first')
     local second = make_parser_repo('second')
+    local restore_echo = stub_progress_echo()
     local original_notify = vim.notify
     local messages = {}
     vim.notify = function(message, level)
@@ -559,11 +599,30 @@ describe('ts-pack', function()
       { src = first, name = 'first', version = 'HEAD' },
       { src = second, name = 'second', version = 'HEAD' },
     })
+    restore_echo()
     vim.notify = original_notify
 
     assert.equals(1, #messages)
     assert.equals('ts-pack installed parsers: `first`, `second`', messages[1].message)
     assert.equals(vim.log.levels.INFO, messages[1].level)
+  end)
+
+  it('suppresses progress summaries during quiet sync add', function()
+    local repo = make_parser_repo('fixture')
+    local original_notify = vim.notify
+    local messages = {}
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    local ts_pack = require('ts-pack')
+    local result = ts_pack.add({
+      { src = repo, name = 'fixture', version = 'HEAD' },
+    }, { quiet = true })
+    vim.notify = original_notify
+
+    assert.equals(0, #messages)
+    assert.truthy(vim.uv.fs_stat(result[1].path))
   end)
 
   it('starts sync parser installs in parallel and waits for completion', function()
@@ -608,7 +667,7 @@ describe('ts-pack', function()
           name = 'third',
           generate = false,
         },
-      }, { info = false })
+      }, { info = false, quiet = true })
     end)
 
     vim.uv.available_parallelism = original_available_parallelism
@@ -644,7 +703,7 @@ describe('ts-pack', function()
     ts_pack.add({
       { src = first, name = 'first', version = 'HEAD' },
       { src = second, name = 'second', version = 'HEAD' },
-    })
+    }, { quiet = true })
 
     vim.uv.available_parallelism = original_available_parallelism
 
@@ -658,8 +717,9 @@ describe('ts-pack', function()
     local ts_pack = require('ts-pack')
     ts_pack.add({
       { src = repo, name = 'fixture', version = 'HEAD' },
-    })
+    }, { quiet = true })
 
+    local restore_echo = stub_progress_echo()
     local original_notify = vim.notify
     local messages = {}
     vim.notify = function(message, level)
@@ -667,6 +727,7 @@ describe('ts-pack', function()
     end
 
     ts_pack.update({ 'fixture' })
+    restore_echo()
     vim.notify = original_notify
 
     assert.equals(1, #messages)
@@ -674,12 +735,32 @@ describe('ts-pack', function()
     assert.equals(vim.log.levels.INFO, messages[1].level)
   end)
 
+  it('suppresses progress summaries during quiet update', function()
+    local repo = make_parser_repo('fixture')
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = repo, name = 'fixture', version = 'HEAD' },
+    }, { quiet = true })
+
+    local original_notify = vim.notify
+    local messages = {}
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    local result = ts_pack.update({ 'fixture' }, { quiet = true })
+    vim.notify = original_notify
+
+    assert.equals(0, #messages)
+    assert.equals('fixture', result[1].spec.name)
+  end)
+
   it('starts coroutine async update without installing inline', function()
     local repo = make_parser_repo('fixture')
     local ts_pack = require('ts-pack')
     ts_pack.add({
       { src = repo, name = 'fixture', version = 'HEAD' },
-    })
+    }, { quiet = true })
 
     local original_system = vim.system
     local calls = {}
@@ -688,7 +769,7 @@ describe('ts-pack', function()
       return {}
     end
 
-    local result = ts_pack.update({ 'fixture' }, { async = true, target = 'version' })
+    local result = ts_pack.update({ 'fixture' }, { async = true, target = 'version', quiet = true })
     vim.system = original_system
 
     assert.equals(1, #calls)
@@ -703,11 +784,11 @@ describe('ts-pack', function()
     local ts_pack = require('ts-pack')
     ts_pack.add({
       { src = repo, name = 'fixture', version = 'HEAD' },
-    })
+    }, { quiet = true })
     local parser_path = vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'fixture.so')
     vim.fn.delete(parser_path)
 
-    ts_pack.update({ 'fixture' }, { async = true, target = 'lockfile' })
+    ts_pack.update({ 'fixture' }, { async = true, target = 'lockfile', quiet = true })
 
     local done = vim.wait(10000, function()
       return vim.uv.fs_stat(parser_path) ~= nil
@@ -721,7 +802,7 @@ describe('ts-pack', function()
     local ts_pack = require('ts-pack')
     ts_pack.add({
       { src = repo, name = 'fixture', version = 'HEAD' },
-    })
+    }, { quiet = true })
 
     local original_system = vim.system
     local original_notify = vim.notify
@@ -738,14 +819,14 @@ describe('ts-pack', function()
       messages[#messages + 1] = { message = message, level = level }
     end
 
-    ts_pack.update({ 'fixture' }, { async = true, target = 'version' })
+    ts_pack.update({ 'fixture' }, { async = true, target = 'version', quiet = true })
 
     callbacks[1]({ code = 1, stderr = 'fetch failed' })
     local failed = vim.wait(1000, function()
       return #messages == 1
     end)
 
-    ts_pack.update({ 'fixture' }, { async = true, target = 'version' })
+    ts_pack.update({ 'fixture' }, { async = true, target = 'version', quiet = true })
 
     vim.system = original_system
     vim.notify = original_notify
@@ -808,7 +889,7 @@ describe('ts-pack', function()
     local ts_pack = require('ts-pack')
     ts_pack.add({
       { src = '/tmp/tree-sitter-fixture', name = 'fixture', version = 'HEAD' },
-    }, { async = true, info = false })
+    }, { async = true, info = false, quiet = true })
 
     callbacks[1]({ code = 1, stderr = 'clone failed' })
     local failed = vim.wait(1000, function()
@@ -817,7 +898,7 @@ describe('ts-pack', function()
 
     ts_pack.add({
       { src = '/tmp/tree-sitter-other', name = 'other', version = 'HEAD' },
-    }, { async = true, info = false })
+    }, { async = true, info = false, quiet = true })
 
     vim.system = original_system
     vim.notify = original_notify
@@ -847,10 +928,10 @@ describe('ts-pack', function()
     local ts_pack = require('ts-pack')
     ts_pack.add({
       { src = '/tmp/tree-sitter-fixture', name = 'fixture', version = 'HEAD' },
-    }, { async = true, info = false })
+    }, { async = true, info = false, quiet = true })
     ts_pack.add({
       { src = '/tmp/tree-sitter-other', name = 'other', version = 'HEAD' },
-    }, { async = true, info = false })
+    }, { async = true, info = false, quiet = true })
 
     vim.system = original_system
     vim.notify = original_notify

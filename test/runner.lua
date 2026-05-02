@@ -67,7 +67,8 @@ local function load_specs()
   end
 end
 
-function M.run()
+function M.run(opts)
+  opts = opts or {}
   load_specs()
 
   local failures = {}
@@ -83,7 +84,9 @@ function M.run()
     end
 
     if ok then
-      print('ok - ' .. test.name)
+      if opts.verbose then
+        print('ok - ' .. test.name)
+      end
     else
       failures[#failures + 1] = { name = test.name, err = err }
       print('not ok - ' .. test.name)
@@ -92,11 +95,12 @@ function M.run()
   end
 
   if #failures > 0 then
+    print(('%d test(s) run'):format(#tests))
     print(('%d test(s) failed'):format(#failures))
     vim.cmd('cquit 1')
   end
 
-  print(('%d test(s) passed'):format(#tests))
+  print(('%d test(s) run'):format(#tests))
 end
 
 return M

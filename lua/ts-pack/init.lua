@@ -137,7 +137,7 @@ local function run_install(kind, specs, opts, runner_opts)
 
   opts = vim.deepcopy(opts or {})
   opts.async = nil
-  local install_report = report.start_install_report(#specs)
+  local install_report = report.start_install_report(#specs, { quiet = opts.quiet })
   local results = {}
   local parser_order = {}
   for index, parser in ipairs(specs) do
