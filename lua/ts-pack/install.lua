@@ -43,6 +43,7 @@ local function install_with(spec, opts, ensure_checkout, generate, compile, curr
   fs.ensure_dir(path.parser_info_dir(opts))
   vim.fn.writefile({ rev }, path.parser_revision_path(spec.name, opts))
 
+  lock = fs.load_lock()
   lock.parsers[spec.name] = {
     src = spec.src,
     rev = rev,

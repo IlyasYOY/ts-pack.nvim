@@ -251,6 +251,95 @@ describe('ts-pack', function()
     )
   end)
 
+  it('starts async parser installs in parallel', function()
+    local original_system = vim.system
+    local original_notify = vim.notify
+    local original_available_parallelism = vim.uv.available_parallelism
+    local calls = {}
+    local callbacks = {}
+    local messages = {}
+
+    vim.uv.available_parallelism = function()
+      return 2
+    end
+    vim.system = function(cmd, opts, callback)
+      calls[#calls + 1] = { cmd = cmd, opts = opts, callback = callback }
+      callbacks[#callbacks + 1] = callback
+      return {}
+    end
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = '/tmp/tree-sitter-first', name = 'first', version = 'HEAD' },
+      { src = '/tmp/tree-sitter-second', name = 'second', version = 'HEAD' },
+      { src = '/tmp/tree-sitter-third', name = 'third', version = 'HEAD' },
+    }, { async = true, info = false })
+
+    assert.equals(2, #calls)
+    assert.equals('clone', calls[1].cmd[2])
+    assert.equals('clone', calls[2].cmd[2])
+
+    callbacks[1]({ code = 1, stderr = 'first failed' })
+    callbacks[2]({ code = 1, stderr = 'second failed' })
+    local failed = vim.wait(1000, function()
+      return #messages == 1
+    end)
+
+    vim.uv.available_parallelism = original_available_parallelism
+    vim.system = original_system
+    vim.notify = original_notify
+
+    assert.truthy(failed)
+    assert.equals(vim.log.levels.ERROR, messages[1].level)
+    assert.truthy(messages[1].message:match('ts%-pack async add failed'))
+  end)
+
+  it('caps async workers to pending parser count', function()
+    local original_system = vim.system
+    local original_notify = vim.notify
+    local original_available_parallelism = vim.uv.available_parallelism
+    local calls = {}
+    local callbacks = {}
+    local messages = {}
+
+    vim.uv.available_parallelism = function()
+      return 8
+    end
+    vim.system = function(cmd, opts, callback)
+      calls[#calls + 1] = { cmd = cmd, opts = opts, callback = callback }
+      callbacks[#callbacks + 1] = callback
+      return {}
+    end
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = '/tmp/tree-sitter-first', name = 'first', version = 'HEAD' },
+      { src = '/tmp/tree-sitter-second', name = 'second', version = 'HEAD' },
+    }, { async = true, info = false })
+
+    assert.equals(2, #calls)
+
+    callbacks[1]({ code = 1, stderr = 'first failed' })
+    callbacks[2]({ code = 1, stderr = 'second failed' })
+    local failed = vim.wait(1000, function()
+      return #messages == 1
+    end)
+
+    vim.uv.available_parallelism = original_available_parallelism
+    vim.system = original_system
+    vim.notify = original_notify
+
+    assert.truthy(failed)
+    assert.equals(vim.log.levels.ERROR, messages[1].level)
+    assert.truthy(messages[1].message:match('ts%-pack async add failed'))
+  end)
+
   it('logs installed parsers once during async add', function()
     local repo = make_parser_repo('fixture')
     local original_notify = vim.notify
@@ -303,6 +392,35 @@ describe('ts-pack', function()
     assert.equals(1, #messages)
     assert.equals('ts-pack installed parsers: `first`, `second`', messages[1].message)
     assert.equals(vim.log.levels.INFO, messages[1].level)
+  end)
+
+  it('keeps all async parser entries in the lockfile', function()
+    local first = make_parser_repo('first')
+    local second = make_parser_repo('second')
+    local original_available_parallelism = vim.uv.available_parallelism
+
+    vim.uv.available_parallelism = function()
+      return 2
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.add({
+      { src = first, name = 'first', version = 'HEAD' },
+      { src = second, name = 'second', version = 'HEAD' },
+    }, { async = true })
+
+    local done = vim.wait(10000, function()
+      local parser_dir = vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser')
+      return vim.uv.fs_stat(vim.fs.joinpath(parser_dir, 'first.so')) ~= nil
+        and vim.uv.fs_stat(vim.fs.joinpath(parser_dir, 'second.so')) ~= nil
+    end)
+
+    vim.uv.available_parallelism = original_available_parallelism
+
+    assert.truthy(done)
+    local lock = read_lock()
+    assert.equals(first, lock.parsers.first.src)
+    assert.equals(second, lock.parsers.second.src)
   end)
 
   it('logs partial async installs before an async failure', function()

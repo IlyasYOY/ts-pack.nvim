@@ -7,6 +7,8 @@ local process = require('ts-pack.process')
 local report = require('ts-pack.report')
 local spec = require('ts-pack.spec')
 
+local uv = vim.uv or vim.loop
+
 local active = {}
 local active_order = {}
 local async_running = false
@@ -84,6 +86,34 @@ end
 
 process.set_async_resumer(resume_async)
 
+local function async_worker_count(total)
+  local count
+
+  if uv and type(uv.available_parallelism) == 'function' then
+    local ok, parallelism = pcall(uv.available_parallelism)
+    if ok then
+      count = parallelism
+    end
+  end
+
+  if not count and uv and type(uv.cpu_info) == 'function' then
+    local ok, cpus = pcall(uv.cpu_info)
+    if ok and type(cpus) == 'table' then
+      count = #cpus
+    end
+  end
+
+  count = tonumber(count) or 1
+  count = math.floor(count)
+  if count < 1 then
+    count = 1
+  end
+  if count > total then
+    count = total
+  end
+  return count
+end
+
 local function run_async_install(kind, specs, opts)
   if async_running then
     vim.notify(
@@ -98,30 +128,76 @@ local function run_async_install(kind, specs, opts)
   opts = vim.deepcopy(opts or {})
   opts.async = nil
   local install_report = report.start_install_report(#specs)
+  local parser_order = {}
+  for index, parser in ipairs(specs) do
+    parser_order[parser.name] = index
+  end
 
-  local thread = coroutine.create(function()
-    for _, parser in ipairs(specs) do
+  local next_index = 1
+  local active_workers = 0
+  local failed_error
+
+  local function sort_report()
+    table.sort(install_report.installed, function(left, right)
+      return parser_order[left] < parser_order[right]
+    end)
+  end
+
+  local function finish()
+    async_running = false
+    async_operation = nil
+
+    sort_report()
+    if failed_error then
+      report.finish_install_report(install_report, true)
+      vim.notify(('ts-pack async %s failed: %s'):format(kind, failed_error), vim.log.levels.ERROR)
+      return
+    end
+
+    report.finish_install_report(install_report)
+  end
+
+  local function worker_loop()
+    while not failed_error do
+      local index = next_index
+      next_index = next_index + 1
+      local parser = specs[index]
+      if not parser then
+        break
+      end
+
       local ok, err = pcall(install.install_async, parser, opts)
       if not ok then
-        async_running = false
-        async_operation = nil
-        report.finish_install_report(install_report, true)
-        vim.notify(('ts-pack async %s failed: %s'):format(kind, err), vim.log.levels.ERROR)
-        return
+        failed_error = err
+        break
       end
       report.record_installed_parser(install_report, parser.name)
     end
-    async_running = false
-    async_operation = nil
-    report.finish_install_report(install_report)
-  end)
+  end
 
-  local ok, err = coroutine.resume(thread)
-  if not ok then
-    async_running = false
-    async_operation = nil
-    report.finish_install_report(install_report, true)
-    vim.notify(('ts-pack async %s failed: %s'):format(kind, err), vim.log.levels.ERROR)
+  local function worker()
+    local ok, err = pcall(worker_loop)
+    if not ok and not failed_error then
+      failed_error = err
+    end
+
+    active_workers = active_workers - 1
+    if active_workers == 0 then
+      finish()
+    end
+  end
+
+  active_workers = async_worker_count(#specs)
+  for _ = 1, active_workers do
+    local thread = coroutine.create(worker)
+    local ok, err = coroutine.resume(thread)
+    if not ok and not failed_error then
+      failed_error = err
+    end
+  end
+
+  if active_workers == 0 then
+    finish()
   end
 end
 
