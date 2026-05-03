@@ -33,6 +33,17 @@
   (#set! injection.language "javascript"))
 
 ; <script type="foo/bar">
+((script_element
+  (start_tag
+    (attribute
+      (attribute_name) @_attr
+      (#eq? @_attr "type")
+      (quoted_attribute_value
+        (attribute_value) @_type)))
+  (raw_text) @injection.content)
+  (#any-of? @_type "application/ecmascript" "text/ecmascript")
+  (#set! injection.language "javascript"))
+
 (script_element
   (start_tag
     (attribute

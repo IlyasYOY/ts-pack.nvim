@@ -1,4 +1,12 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
+vim.opt.swapfile = false
+
+vim.filetype.add({
+  extension = {
+    conf = 'hocon',
+    w = 'wing',
+  },
+})
 
 local base = vim.env.TS_PACK_TEST_HOME or vim.fs.joinpath(vim.fn.getcwd(), '.test-home')
 vim.env.XDG_CONFIG_HOME = vim.fs.joinpath(base, 'config')

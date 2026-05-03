@@ -8,19 +8,13 @@ local function check_assertions(file)
 
   for _, assertion in ipairs(assertions) do
     local expected_lang = assertion.expected_capture_name:gsub('^!', '')
-    if
-      not assertion.expected_capture_name:match('^!') and not helpers.parser_path(expected_lang)
-    then
-      if helpers.is_strict() then
-        error(
-          ('parser for injected %s is required for strict query fixture tests'):format(
-            expected_lang
-          ),
-          2
-        )
-      end
-
-      _G.skip(('parser for injected %s is not available'):format(expected_lang))
+    if not assertion.expected_capture_name:match('^!') and not helpers.parser_path(expected_lang) then
+      error(
+        ('parser for injected %s is required for strict query fixture tests'):format(
+          expected_lang
+        ),
+        2
+      )
     end
   end
 

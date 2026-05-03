@@ -4,33 +4,40 @@ local fs = require('ts-pack.fs')
 local path = require('ts-pack.path')
 
 local registered_predicates = false
-
-local bundled = {
-  c = true,
-  go = true,
-  gomod = true,
-  gosum = true,
-  gowork = true,
-  lua = true,
-  luadoc = true,
-  markdown = true,
-  markdown_inline = true,
-}
+local bundled
 
 local function module_dir()
   local source = debug.getinfo(1, 'S').source:gsub('^@', '')
   return vim.fs.dirname(source)
 end
 
+local function bundled_root()
+  return path.join(module_dir(), 'bundled_queries')
+end
+
+local function bundled_dirs()
+  if bundled then
+    return bundled
+  end
+
+  bundled = {}
+  for name, type_ in vim.fs.dir(bundled_root()) do
+    if type_ == 'directory' then
+      bundled[name] = true
+    end
+  end
+  return bundled
+end
+
 function M.has_bundled(name)
-  return bundled[name] == true
+  return bundled_dirs()[name] == true
 end
 
 function M.bundled_path(name)
   if not M.has_bundled(name) then
     return nil
   end
-  return path.join(module_dir(), 'bundled_queries', name)
+  return path.join(bundled_root(), name)
 end
 
 local function kind_eq(match, pred, any)
@@ -73,13 +80,34 @@ function M.materialize_bundled(spec, opts)
     return
   end
 
-  local src = M.bundled_path(spec.name)
-  if not src then
-    return
+  local seen = {}
+
+  local function materialize(name)
+    if seen[name] then
+      return
+    end
+    seen[name] = true
+
+    local src = M.bundled_path(name)
+    if not src then
+      return
+    end
+
+    M.register_predicates()
+    fs.copy_tree(src, path.query_path(name, opts))
+
+    for _, file in ipairs(vim.fn.globpath(src, '*.scm', false, true)) do
+      local first = vim.fn.readfile(file, '', 1)[1]
+      local inherited = first and first:match('^;%s*inherits:%s*(.+)$')
+      if inherited then
+        for lang in inherited:gmatch('[^,%s]+') do
+          materialize(lang)
+        end
+      end
+    end
   end
 
-  M.register_predicates()
-  fs.copy_tree(src, path.query_path(spec.name, opts))
+  materialize(spec.name)
 end
 
 return M

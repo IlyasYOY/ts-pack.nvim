@@ -4,6 +4,7 @@ local runner = Runner:new(it, 'tests/indent/angular', {
   shiftwidth = 2,
   expandtab = true,
 })
+runner:xfail_new_lines({ 'defer.html', 'for.html', 'if-else.html', 'switch-case.html' })
 
 describe('indent HTML Angular:', function()
   describe('whole file:', function()

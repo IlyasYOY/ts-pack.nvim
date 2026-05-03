@@ -44,7 +44,7 @@ local function check_assertions(file)
       for id, node, _ in query:iter_captures(root, ctx.buf, row, row + 1) do
         if ts.is_in_node_range(node, row, col) then
           local capture = query.captures[id]
-          if capture ~= nil and capture ~= 'conceal' then
+          if capture ~= nil and capture ~= 'conceal' and capture ~= 'spell' then
             captures[capture] = true
           end
         end

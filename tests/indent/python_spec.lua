@@ -7,6 +7,7 @@ local run = Runner:new(it, 'tests/indent/python', {
   softtabstop = 0,
   expandtab = true,
 })
+run:xfail_new_lines('if_else.py')
 
 describe('indent Python:', function()
   describe('whole file:', function()

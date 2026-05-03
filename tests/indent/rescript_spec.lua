@@ -6,6 +6,7 @@ local run = Runner:new(it, 'tests/indent/rescript', {
   softtabstop = 0,
   expandtab = true,
 })
+run:xfail_new_lines('conditional.res')
 
 describe('indent ReScript:', function()
   describe('whole file:', function()

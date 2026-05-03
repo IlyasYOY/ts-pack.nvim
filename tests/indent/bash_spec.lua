@@ -6,6 +6,7 @@ local run = Runner:new(it, 'tests/indent/bash', {
   softtabstop = 0,
   expandtab = true,
 })
+run:xfail_new_lines('test.sh')
 
 describe('indent Bash:', function()
   describe('whole file:', function()

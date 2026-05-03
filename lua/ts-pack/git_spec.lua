@@ -1,4 +1,8 @@
 describe('ts-pack.git', function()
+  before_each(function()
+    vim.fn.delete(vim.fs.joinpath(vim.fn.stdpath('cache'), 'ts-pack'), 'rf')
+  end)
+
   it('resolves refs from version target, lockfile entry, then spec version', function()
     local git = require('ts-pack.git')
     local spec = { version = 'main' }

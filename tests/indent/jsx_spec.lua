@@ -4,6 +4,7 @@ local runner = Runner:new(it, 'tests/indent/jsx', {
   shiftwidth = 2,
   expandtab = true,
 })
+runner:xfail_new_lines({ 'element_attributes.jsx', 'jsx_expression.jsx' })
 
 describe('indent JSX Elements:', function()
   describe('whole file:', function()

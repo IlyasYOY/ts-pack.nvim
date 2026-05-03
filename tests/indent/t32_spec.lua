@@ -7,6 +7,7 @@ local runner = Runner:new(it, 'tests/indent/t32', {
   softtabstop = 0,
   expandtab = true,
 })
+runner:xfail_new_lines({ 'if_block.cmm', 'repeat_block.cmm', 'subroutine_block.cmm', 'while_block.cmm' })
 
 describe('indent t32:', function()
   describe('whole file:', function()

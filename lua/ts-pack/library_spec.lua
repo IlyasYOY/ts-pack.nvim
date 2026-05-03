@@ -77,7 +77,7 @@ describe('ts-pack.library', function()
           'sh',
         },
       },
-      queries = 'queries',
+      bundled_queries = true,
     }, selected[1])
 
     selected[1].version = 'changed'
@@ -116,7 +116,7 @@ describe('ts-pack.library', function()
     assert.equals('851e9cb257ba7c66cc8c14214a31c44d2f1e954e', selected[1].version)
   end)
 
-  it('marks only imported bundled query parsers', function()
+  it('marks every parser with copied bundled queries', function()
     local library = require('ts-pack.library')
     local selected = library.select({ 'c', 'go', 'lua', 'markdown', 'bash' })
     local marked = {}
@@ -130,7 +130,7 @@ describe('ts-pack.library', function()
     assert.equals(true, marked.lua)
     assert.equals(true, marked.markdown)
     assert.equals(true, marked.markdown_inline)
-    assert.falsy(marked.bash)
+    assert.equals(true, marked.bash)
     assert.falsy(selected[1].queries)
   end)
 

@@ -1,15 +1,16 @@
 describe('ts-pack.queries', function()
-  it('exposes bundled query paths only for imported languages', function()
+  it('exposes bundled query paths for copied bundled languages', function()
     local queries = require('ts-pack.queries')
 
     assert.truthy(queries.bundled_path('c'):match('/lua/ts%-pack/bundled_queries/c$'))
     assert.truthy(queries.bundled_path('go'):match('/lua/ts%-pack/bundled_queries/go$'))
     assert.truthy(queries.bundled_path('lua'):match('/lua/ts%-pack/bundled_queries/lua$'))
     assert.truthy(queries.bundled_path('markdown'):match('/lua/ts%-pack/bundled_queries/markdown$'))
-    assert.falsy(queries.bundled_path('bash'))
+    assert.truthy(queries.bundled_path('bash'):match('/lua/ts%-pack/bundled_queries/bash$'))
+    assert.falsy(queries.bundled_path('missing'))
   end)
 
-  it('ships expected query files for the imported language families', function()
+  it('ships expected query files for selected bundled language families', function()
     local queries = require('ts-pack.queries')
     local expected = {
       c = { 'highlights.scm', 'indents.scm', 'injections.scm' },

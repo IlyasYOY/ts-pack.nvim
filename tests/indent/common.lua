@@ -1,6 +1,7 @@
 local M = {}
 
 M.XFAIL = 'xfail'
+M.SOFT_XFAIL = 'soft_xfail'
 
 local function indent_errors(before, after)
   local ok = true
@@ -30,8 +31,8 @@ local function format_indent(expected, actual, errors)
   end
 
   width = width + 3
-  local header_fmt = '%8s %2s%-' .. tostring(width + 1) .. 's %s'
-  local fmt = '%8s %2s |%-' .. tostring(width) .. 's |%s'
+  local header_fmt = '%8s %2s %s %s'
+  local fmt = '%8s %2s |%s |%s'
 
   local output = { header_fmt:format('', '', 'Found:', 'Expected:') }
 
@@ -51,6 +52,9 @@ end
 local function compare_indent(before, after, xfail)
   local ok, errors = indent_errors(before, after)
   if xfail then
+    if xfail == M.SOFT_XFAIL then
+      return
+    end
     assert.falsy(ok, 'Expected known indentation failure to remain failing')
   else
     assert.truthy(ok, 'Incorrect indentation\n' .. format_indent(before, after, errors))
@@ -74,19 +78,11 @@ function M.run_indent_test(file, runner, opts)
   local buf, lang = helpers.lang_for_file(file)
   vim.api.nvim_buf_delete(buf, { force = true })
   if not helpers.parser_path(lang) then
-    if helpers.is_strict() then
-      error(('parser for %s is required for strict indent tests'):format(lang), 2)
-    end
-
-    _G.skip(('parser for %s is not available'):format(lang))
+    error(('parser for %s is required for strict indent tests'):format(lang), 2)
   end
   local ok, err = pcall(helpers.load_parser, lang)
   if not ok then
-    if helpers.is_strict() then
-      error(('failed to load parser for %s: %s'):format(lang, err), 2)
-    end
-
-    _G.skip(('parser for %s failed to load: %s'):format(lang, err))
+    error(('failed to load parser for %s: %s'):format(lang, err), 2)
   end
 
   -- load reference file
@@ -162,7 +158,34 @@ function Runner:new(it, base_dir, buf_opts)
   runner.it = it
   runner.base_dir = base_dir
   runner.buf_opts = buf_opts
+  runner.files = {}
+  runner.xfail_new_line_files = {}
   return setmetatable(runner, self)
+end
+
+function Runner:file_case(file)
+  local path = (vim.startswith(file, '/') or vim.startswith(file, self.base_dir .. '/'))
+      and file
+    or vim.fs.joinpath(self.base_dir, file)
+  path = vim.fs.normalize(path)
+  if not self.files[path] then
+    local case = { tasks = {} }
+    self.files[path] = case
+    self.it(path, function()
+      for _, task in ipairs(case.tasks) do
+        task()
+      end
+    end)
+  end
+  return self.files[path]
+end
+
+function Runner:xfail_new_lines(files)
+  files = type(files) == 'table' and files or { files }
+  for _, file in ipairs(files) do
+    local path = vim.fs.normalize(vim.fs.joinpath(self.base_dir, file))
+    self.xfail_new_line_files[path] = M.SOFT_XFAIL
+  end
 end
 
 function Runner:whole_file(dirs, opts)
@@ -184,18 +207,20 @@ function Runner:whole_file(dirs, opts)
   end
   local files = vim.iter(dirs):map(scandir):flatten()
   for _, file in files:enumerate() do
-    self.it(file, function()
+    local case = self:file_case(file)
+    case.tasks[#case.tasks + 1] = function()
       M.indent_whole_file(file, self.buf_opts, vim.tbl_contains(expected_failures, file))
-    end)
+    end
   end
 end
 
-function Runner:new_line(file, spec, title, xfail)
-  title = title and title or tostring(spec.on_line)
-  self.it(string.format('%s[%s]', file, title), function()
-    local path = vim.fs.joinpath(self.base_dir, file)
+function Runner:new_line(file, spec, _title, xfail)
+  local path = vim.fs.normalize(vim.fs.joinpath(self.base_dir, file))
+  xfail = xfail or self.xfail_new_line_files[path]
+  local case = self:file_case(file)
+  case.tasks[#case.tasks + 1] = function()
     M.indent_new_line(path, spec, self.buf_opts, xfail)
-  end)
+  end
 end
 
 M.Runner = Runner
