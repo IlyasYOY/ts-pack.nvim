@@ -256,6 +256,33 @@ Its shape is:
 }
 ```
 
+## Development
+
+Run the test suite with the current `nvim` from your `PATH`:
+
+```sh
+make test
+```
+
+To try another Neovim release, set `NVIM_VERSION`. The requested release is
+downloaded into `.test-deps` and reused on later runs:
+
+```sh
+make test NVIM_VERSION=nightly
+make test NVIM_VERSION=stable
+make test NVIM_VERSION=v0.11.4
+```
+
+Run `make clean` to remove downloaded test dependencies and force a fresh
+download on the next versioned run.
+
+You can still run the tests with an explicit local binary when `NVIM_VERSION` is
+unset:
+
+```sh
+make test NVIM=/path/to/nvim
+```
+
 ## Acknowledgements
 
 `ts-pack.nvim` is built on ideas and implementation patterns from
