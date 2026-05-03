@@ -1,4 +1,4 @@
-local helpers = require('test.query_helpers')
+local helpers = require('tests.query_helpers')
 
 local function comment(opts)
   return vim.tbl_extend('force', {
@@ -11,7 +11,7 @@ local function comment(opts)
   }, opts)
 end
 
-describe('test.query_helpers', function()
+describe('tests.query_helpers', function()
   it('parses caret assertions with at-prefixed and plain capture names', function()
     assert.same(
       {

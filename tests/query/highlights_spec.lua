@@ -1,4 +1,4 @@
-local helpers = require('test.query_helpers')
+local helpers = require('tests.query_helpers')
 local ts = vim.treesitter
 
 local COMMENT_NODES = {

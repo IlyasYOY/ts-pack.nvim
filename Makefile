@@ -7,7 +7,14 @@ CURL ?= curl -fL --create-dirs
 TEST_HOME ?= $(CURDIR)/.test-home
 TEST_PARSER_HOME ?= $(CURDIR)/.test-parsers
 
-LUA_FILES := lua test
+LUA_FILES := lua \
+	tests/runner.lua \
+	tests/minimal_init.lua \
+	tests/install_parsers.lua \
+	tests/query_helpers.lua \
+	tests/query_helpers_spec.lua \
+	tests/query/highlights_spec.lua \
+	tests/query/injection_spec.lua
 
 ifeq ($(shell uname -s),Darwin)
   ifeq ($(shell uname -m),arm64)
@@ -55,13 +62,13 @@ $(NVIM_STAMP):
 endif
 
 test-install-parsers: $(TEST_NVIM_DEPS)
-	@TS_PACK_TEST_HOME=$(TEST_HOME) TS_PACK_PARSER_TEST_HOME=$(TEST_PARSER_HOME) XDG_CONFIG_HOME=$(TEST_PARSER_HOME)/config XDG_DATA_HOME=$(TEST_PARSER_HOME)/data XDG_CACHE_HOME=$(TEST_PARSER_HOME)/cache XDG_STATE_HOME=$(TEST_PARSER_HOME)/state $(TEST_NVIM) --headless --noplugin -u test/minimal_init.lua -l test/install_parsers.lua
+	@TS_PACK_TEST_HOME=$(TEST_HOME) TS_PACK_PARSER_TEST_HOME=$(TEST_PARSER_HOME) XDG_CONFIG_HOME=$(TEST_PARSER_HOME)/config XDG_DATA_HOME=$(TEST_PARSER_HOME)/data XDG_CACHE_HOME=$(TEST_PARSER_HOME)/cache XDG_STATE_HOME=$(TEST_PARSER_HOME)/state $(TEST_NVIM) --headless --noplugin -u tests/minimal_init.lua -l tests/install_parsers.lua
 
 test: test-install-parsers
-	@TS_PACK_TEST_HOME=$(TEST_HOME) TS_PACK_PARSER_TEST_HOME=$(TEST_PARSER_HOME) XDG_CONFIG_HOME=$(TEST_HOME)/config XDG_DATA_HOME=$(TEST_HOME)/data XDG_CACHE_HOME=$(TEST_HOME)/cache XDG_STATE_HOME=$(TEST_HOME)/state $(TEST_NVIM) --headless --noplugin -u test/minimal_init.lua -c "lua require('test.runner').run()" -c qa
+	@TS_PACK_TEST_HOME=$(TEST_HOME) TS_PACK_PARSER_TEST_HOME=$(TEST_PARSER_HOME) XDG_CONFIG_HOME=$(TEST_HOME)/config XDG_DATA_HOME=$(TEST_HOME)/data XDG_CACHE_HOME=$(TEST_HOME)/cache XDG_STATE_HOME=$(TEST_HOME)/state $(TEST_NVIM) --headless --noplugin -u tests/minimal_init.lua -c "lua require('tests.runner').run()" -c qa
 
 test-verbose: test-install-parsers
-	@TS_PACK_TEST_HOME=$(TEST_HOME) TS_PACK_PARSER_TEST_HOME=$(TEST_PARSER_HOME) XDG_CONFIG_HOME=$(TEST_HOME)/config XDG_DATA_HOME=$(TEST_HOME)/data XDG_CACHE_HOME=$(TEST_HOME)/cache XDG_STATE_HOME=$(TEST_HOME)/state $(TEST_NVIM) --headless --noplugin -u test/minimal_init.lua -c "lua require('test.runner').run({ verbose = true })" -c qa
+	@TS_PACK_TEST_HOME=$(TEST_HOME) TS_PACK_PARSER_TEST_HOME=$(TEST_PARSER_HOME) XDG_CONFIG_HOME=$(TEST_HOME)/config XDG_DATA_HOME=$(TEST_HOME)/data XDG_CACHE_HOME=$(TEST_HOME)/cache XDG_STATE_HOME=$(TEST_HOME)/state $(TEST_NVIM) --headless --noplugin -u tests/minimal_init.lua -c "lua require('tests.runner').run({ verbose = true })" -c qa
 
 check: format-check lint test
 

@@ -74,7 +74,7 @@ end
 function M.run_indent_test(file, runner, opts)
   assert.are.same(1, vim.fn.filereadable(file), string.format('File "%s" not readable', file))
 
-  local helpers = require('test.query_helpers')
+  local helpers = require('tests.query_helpers')
   local buf, lang = helpers.lang_for_file(file)
   vim.api.nvim_buf_delete(buf, { force = true })
   if not helpers.parser_path(lang) then
@@ -164,8 +164,7 @@ function Runner:new(it, base_dir, buf_opts)
 end
 
 function Runner:file_case(file)
-  local path = (vim.startswith(file, '/') or vim.startswith(file, self.base_dir .. '/'))
-      and file
+  local path = (vim.startswith(file, '/') or vim.startswith(file, self.base_dir .. '/')) and file
     or vim.fs.joinpath(self.base_dir, file)
   path = vim.fs.normalize(path)
   if not self.files[path] then

@@ -20,7 +20,7 @@ local site = require('ts-pack.path').default_site_dir()
 vim.opt.runtimepath:prepend(site)
 vim.opt.packpath:prepend(site)
 
-local helpers = require('test.query_helpers')
+local helpers = require('tests.query_helpers')
 local library = require('ts-pack.library')
 local path = require('ts-pack.path')
 local queries = require('ts-pack.queries')

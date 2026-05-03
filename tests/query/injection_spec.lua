@@ -1,4 +1,4 @@
-local helpers = require('test.query_helpers')
+local helpers = require('tests.query_helpers')
 local ts = vim.treesitter
 
 local function check_assertions(file)
@@ -8,11 +8,11 @@ local function check_assertions(file)
 
   for _, assertion in ipairs(assertions) do
     local expected_lang = assertion.expected_capture_name:gsub('^!', '')
-    if not assertion.expected_capture_name:match('^!') and not helpers.parser_path(expected_lang) then
+    if
+      not assertion.expected_capture_name:match('^!') and not helpers.parser_path(expected_lang)
+    then
       error(
-        ('parser for injected %s is required for strict query fixture tests'):format(
-          expected_lang
-        ),
+        ('parser for injected %s is required for strict query fixture tests'):format(expected_lang),
         2
       )
     end
