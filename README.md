@@ -194,6 +194,26 @@ vim.bo.indentexpr = "v:lua.require'ts-pack.indent'.expr()"
 with bundled indent queries, or user specs with their own `queries` path, can be
 used by this expression after their queries are installed.
 
+## Health checks
+
+Run `:checkhealth ts-pack` to inspect the parser and query artifacts managed by
+`ts-pack`.
+
+The report includes the parser, parser-info, query, cache, and lockfile paths;
+installed parser binaries; active parsers registered in the current session;
+lockfile entries; local parser revisions; and the query files materialized under
+`stdpath('data')/site/queries`. It also lists all Tree-sitter queries visible on
+`runtimepath` in a separate section, so queries provided by Neovim or other
+plugins are not confused with files managed by `ts-pack`.
+
+A warning for a local revision that differs from the lockfile means the parser
+binary on disk was not built from the revision recorded in
+`ts-pack-lock.json`. Run `update({ name }, { target = 'lockfile' })` to restore
+the locked revision, or update without `target = 'lockfile'` to refresh the
+lockfile.
+
+## Options
+
 Supported options follow `vim.pack` naming where they apply:
 
 - `offline = true` prevents git clone/fetch.
