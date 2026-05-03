@@ -112,50 +112,126 @@ function M.fixture_context(file)
   }
 end
 
-local function highlight_assertions_bin()
-  local bin = vim.env.HLASSERT
-  if bin and bin ~= '' then
-    return bin
+local function extract_assertion(comment)
+  local position = {
+    row = comment.start_row,
+    column = comment.start_col,
+  }
+  local has_left_caret = false
+  local has_arrow = false
+  local arrow_end = 0
+
+  for i = 1, #comment.text do
+    local char = comment.text:sub(i, i)
+    arrow_end = i
+    if char == '-' and has_left_caret then
+      has_arrow = true
+      break
+    end
+    if char == '^' then
+      has_arrow = true
+      position.column = position.column + i - 1
+      break
+    end
+    has_left_caret = char == '<'
   end
-  return vim.fs.joinpath(vim.fn.getcwd(), '.test-deps', 'highlight-assertions')
+
+  local capture = comment.text:sub(arrow_end + 1):match('[!%w_%.%-]+')
+  if not has_arrow or not capture then
+    return nil
+  end
+
+  return {
+    position = position,
+    expected_capture_name = capture,
+  }
 end
 
-local function run_highlight_assertions(args)
-  local result = vim.system(args, { text = true }):wait()
-  if result.code ~= 0 then
-    error(
-      ('%s failed\n%s'):format(table.concat(args, ' '), result.stderr or result.stdout or ''),
-      0
-    )
+function M.parse_assertion_comments(comments, comment_node)
+  comment_node = comment_node or 'comment'
+  local assertions = {}
+  local ranges = {}
+
+  for _, comment in ipairs(comments) do
+    if comment.type:find(comment_node, 1, true) and comment.start_row > 0 then
+      local assertion = extract_assertion(comment)
+      if assertion then
+        ranges[#ranges + 1] = comment
+        assertions[#assertions + 1] = assertion
+      end
+    end
   end
 
-  local ok, decoded = pcall(vim.json.decode, result.stdout)
-  if not ok then
-    error(('failed to decode highlight assertions output: %s'):format(result.stdout), 0)
+  local range_index = 1
+  for _, assertion in ipairs(assertions) do
+    while true do
+      local on_assertion_line = false
+      for i = range_index, #ranges do
+        if ranges[i].start_row == assertion.position.row then
+          on_assertion_line = true
+          break
+        end
+      end
+
+      if on_assertion_line then
+        assertion.position.row = assertion.position.row - 1
+      else
+        while range_index <= #ranges and ranges[range_index].start_row < assertion.position.row do
+          range_index = range_index + 1
+        end
+        break
+      end
+    end
   end
-  return decoded
+
+  table.sort(assertions, function(a, b)
+    if a.position.row ~= b.position.row then
+      return a.position.row < b.position.row
+    end
+    if a.position.column ~= b.position.column then
+      return a.position.column < b.position.column
+    end
+    return a.expected_capture_name < b.expected_capture_name
+  end)
+
+  return assertions
 end
 
-function M.highlight_assertions(ctx, file, comment_node)
-  return run_highlight_assertions({
-    highlight_assertions_bin(),
-    '-p',
-    ctx.parser,
-    '-s',
-    file,
-    '-c',
-    comment_node,
-  })
+local function collect_comments(ctx, comment_node)
+  local comments = {}
+  local parser = vim.treesitter.get_parser(ctx.buf, ctx.lang)
+  local tree = parser:parse(true)[1]
+
+  local function visit(node)
+    for child in node:iter_children() do
+      visit(child)
+    end
+
+    local node_type = node:type()
+    if node_type:find(comment_node, 1, true) then
+      local start_row, start_col, end_row, end_col = node:range()
+      comments[#comments + 1] = {
+        type = node_type,
+        text = vim.treesitter.get_node_text(node, ctx.buf),
+        start_row = start_row,
+        start_col = start_col,
+        end_row = end_row,
+        end_col = end_col,
+      }
+    end
+  end
+
+  visit(tree:root())
+  return comments
 end
 
-function M.injection_assertions(ctx, file)
-  return run_highlight_assertions({
-    highlight_assertions_bin(),
-    '-p',
-    ctx.parser,
-    '-s',
-    file,
-  })
+function M.highlight_assertions(ctx, _file, comment_node)
+  comment_node = comment_node or 'comment'
+  return M.parse_assertion_comments(collect_comments(ctx, comment_node), comment_node)
+end
+
+function M.injection_assertions(ctx, _file)
+  return M.parse_assertion_comments(collect_comments(ctx, 'comment'), 'comment')
 end
 
 local function add_lang(result, lang)

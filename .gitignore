@@ -2,7 +2,6 @@ nvim.log
 .test-home/
 .test-parsers/
 .test-deps/
-test/vendor/highlight-assertions/target/
 doc/tags
 .DS_Store
 .luarocks/
