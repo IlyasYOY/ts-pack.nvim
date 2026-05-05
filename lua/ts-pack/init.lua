@@ -14,6 +14,9 @@ local active = {}
 local active_order = {}
 local async_running = false
 local async_operation = nil
+local config = {
+  install_jobs = nil,
+}
 
 local function normalize_names(names)
   if names == nil then
@@ -91,10 +94,23 @@ end
 
 process.set_async_resumer(resume_async)
 
+local function normalize_install_jobs(value)
+  if value == nil then
+    return nil
+  end
+  vim.validate('install_jobs', value, 'number')
+  if value < 1 or value ~= math.floor(value) then
+    error('`install_jobs` must be a positive integer', 3)
+  end
+  return value
+end
+
 local function async_worker_count(total)
   local count
 
-  if uv and type(uv.available_parallelism) == 'function' then
+  if config.install_jobs then
+    count = config.install_jobs
+  elseif uv and type(uv.available_parallelism) == 'function' then
     local ok, parallelism = pcall(uv.available_parallelism)
     if ok then
       count = parallelism
@@ -233,6 +249,12 @@ local function run_install(kind, specs, opts, runner_opts)
     end
     return results
   end
+end
+
+function M.setup(opts)
+  opts = opts or {}
+  vim.validate('opts', opts, 'table')
+  config.install_jobs = normalize_install_jobs(opts.install_jobs)
 end
 
 function M.add(specs, opts)

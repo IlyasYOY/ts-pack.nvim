@@ -108,7 +108,33 @@ describe('ts-pack', function()
     assert.equals('function', type(ts_pack.del))
     assert.equals('function', type(ts_pack.get))
     assert.equals('function', type(ts_pack.update))
-    assert.falsy(ts_pack.setup)
+    assert.equals('function', type(ts_pack.setup))
+  end)
+
+  it('validates configured parser install jobs', function()
+    local ts_pack = require('ts-pack')
+    local ok
+
+    ok = pcall(function()
+      ts_pack.setup({ install_jobs = 1 })
+    end)
+    assert.truthy(ok)
+    ok = pcall(function()
+      ts_pack.setup({})
+    end)
+    assert.truthy(ok)
+    ok = pcall(function()
+      ts_pack.setup({ install_jobs = 0 })
+    end)
+    assert.falsy(ok)
+    ok = pcall(function()
+      ts_pack.setup({ install_jobs = 1.5 })
+    end)
+    assert.falsy(ok)
+    ok = pcall(function()
+      ts_pack.setup({ install_jobs = '1' })
+    end)
+    assert.falsy(ok)
   end)
 
   it('does not create user commands', function()
@@ -502,6 +528,49 @@ describe('ts-pack', function()
     assert.truthy(messages[1].message:match('ts%-pack async add failed'))
   end)
 
+  it('uses configured install jobs for async parser installs', function()
+    local original_system = vim.system
+    local original_notify = vim.notify
+    local original_available_parallelism = vim.uv.available_parallelism
+    local calls = {}
+    local callbacks = {}
+    local messages = {}
+
+    vim.uv.available_parallelism = function()
+      return 8
+    end
+    vim.system = function(cmd, opts, callback)
+      calls[#calls + 1] = { cmd = cmd, opts = opts, callback = callback }
+      callbacks[#callbacks + 1] = callback
+      return {}
+    end
+    vim.notify = function(message, level)
+      messages[#messages + 1] = { message = message, level = level }
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.setup({ install_jobs = 1 })
+    ts_pack.add({
+      { src = '/tmp/tree-sitter-first', name = 'first', version = 'HEAD' },
+      { src = '/tmp/tree-sitter-second', name = 'second', version = 'HEAD' },
+    }, { async = true, info = false, quiet = true })
+
+    assert.equals(1, #calls)
+
+    callbacks[1]({ code = 1, stderr = 'first failed' })
+    local failed = vim.wait(1000, function()
+      return #messages == 1
+    end)
+
+    vim.uv.available_parallelism = original_available_parallelism
+    vim.system = original_system
+    vim.notify = original_notify
+
+    assert.truthy(failed)
+    assert.equals(vim.log.levels.ERROR, messages[1].level)
+    assert.truthy(messages[1].message:match('ts%-pack async add failed'))
+  end)
+
   it('logs installed parsers once during async add', function()
     local repo = make_parser_repo('fixture')
     local restore_echo = stub_progress_echo()
@@ -765,6 +834,56 @@ describe('ts-pack', function()
     assert.truthy(
       vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'third.so'))
     )
+  end)
+
+  it('uses configured install jobs for sync parser installs', function()
+    local original_system = vim.system
+    local original_available_parallelism = vim.uv.available_parallelism
+    local calls = {}
+    local in_flight = 0
+    local max_in_flight = 0
+
+    vim.uv.available_parallelism = function()
+      return 8
+    end
+    vim.system = function(cmd, opts, callback)
+      calls[#calls + 1] = { cmd = cmd, opts = opts, callback = callback }
+      in_flight = in_flight + 1
+      max_in_flight = math.max(max_in_flight, in_flight)
+      vim.schedule(function()
+        in_flight = in_flight - 1
+        callback({ code = 0, stdout = '', stderr = '' })
+      end)
+      return {}
+    end
+
+    local ts_pack = require('ts-pack')
+    ts_pack.setup({ install_jobs = 1 })
+    local ok, result = pcall(function()
+      return ts_pack.add({
+        {
+          src = 'file://first',
+          path = make_built_parser_root('first'),
+          name = 'first',
+          generate = false,
+        },
+        {
+          src = 'file://second',
+          path = make_built_parser_root('second'),
+          name = 'second',
+          generate = false,
+        },
+      }, { info = false, quiet = true })
+    end)
+
+    vim.uv.available_parallelism = original_available_parallelism
+    vim.system = original_system
+
+    assert.truthy(ok)
+    assert.equals(2, #calls)
+    assert.equals(1, max_in_flight)
+    assert.equals('first', result[1].spec.name)
+    assert.equals('second', result[2].spec.name)
   end)
 
   it('keeps all sync parser entries in the lockfile', function()

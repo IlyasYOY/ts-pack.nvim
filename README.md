@@ -51,6 +51,7 @@ ts_pack.add(library.select({
 ## API
 
 ```lua
+require('ts-pack').setup(opts)
 require('ts-pack').add(specs, opts)
 require('ts-pack').update(names, opts)
 require('ts-pack').del(names, opts)
@@ -216,6 +217,9 @@ lockfile.
 
 Supported options follow `vim.pack` naming where they apply:
 
+- `setup({ install_jobs = n })` limits parser install concurrency to `n`
+  workers. When unset, installs keep using the host parallelism reported by
+  libuv, capped to the number of pending parsers.
 - `offline = true` prevents git clone/fetch.
 - `target = 'version'` installs the spec `version`.
   When `version` is unset and `branch` is set, it installs `origin/<branch>`.
