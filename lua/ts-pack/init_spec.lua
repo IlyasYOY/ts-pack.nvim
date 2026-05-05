@@ -56,6 +56,24 @@ local function make_built_parser_root(lang)
   return root
 end
 
+local function write_parser_artifact(name)
+  write(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', name .. '.so'), {
+    'parser for ' .. name,
+  })
+end
+
+local function save_lock_entry(name)
+  require('ts-pack.fs').save_lock({
+    parsers = {
+      [name] = {
+        src = '/tmp/tree-sitter-' .. name,
+        rev = 'locked-revision',
+        version = 'HEAD',
+      },
+    },
+  })
+end
+
 local function commit_second_revision(root)
   write(vim.fs.joinpath(root, 'README.md'), { 'second revision' })
   run({ 'git', 'add', '.' }, { cwd = root })
@@ -314,6 +332,65 @@ describe('ts-pack', function()
     assert.falsy(
       vim.uv.fs_stat(vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'parser', 'fixture.so'))
     )
+  end)
+
+  it('marks async add pending when parser exists but lock entry is missing', function()
+    write_parser_artifact('fixture')
+    local original_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, opts, _)
+      calls[#calls + 1] = { cmd = cmd, opts = opts }
+      return {}
+    end
+
+    local ts_pack = require('ts-pack')
+    local result = ts_pack.add({
+      { src = '/tmp/tree-sitter-fixture', name = 'fixture', version = 'HEAD' },
+    }, { async = true, info = false, quiet = true })
+    vim.system = original_system
+
+    assert.truthy(result[1].pending)
+    assert.equals(1, #calls)
+  end)
+
+  it('marks async add pending when force queues an installed parser', function()
+    write_parser_artifact('fixture')
+    save_lock_entry('fixture')
+    local original_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, opts, _)
+      calls[#calls + 1] = { cmd = cmd, opts = opts }
+      return {}
+    end
+
+    local ts_pack = require('ts-pack')
+    local result = ts_pack.add({
+      { src = '/tmp/tree-sitter-fixture', name = 'fixture', version = 'HEAD' },
+    }, { async = true, force = true, info = false, quiet = true })
+    vim.system = original_system
+
+    assert.truthy(result[1].pending)
+    assert.equals(1, #calls)
+  end)
+
+  it('marks async add pending when target queues an installed parser', function()
+    write_parser_artifact('fixture')
+    save_lock_entry('fixture')
+    local original_system = vim.system
+    local calls = {}
+    vim.system = function(cmd, opts, _)
+      calls[#calls + 1] = { cmd = cmd, opts = opts }
+      return {}
+    end
+
+    local ts_pack = require('ts-pack')
+    local result = ts_pack.add({
+      { src = '/tmp/tree-sitter-fixture', name = 'fixture', version = 'HEAD' },
+    }, { async = true, target = 'lockfile', info = false, quiet = true })
+    vim.system = original_system
+
+    assert.truthy(result[1].pending)
+    assert.equals(1, #calls)
   end)
 
   it('registers filetype metadata immediately during async add', function()

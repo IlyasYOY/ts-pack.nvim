@@ -38,4 +38,19 @@ describe('ts-pack.process', function()
     assert.falsy(ok)
     assert.truthy(err:match('command failed in /tmp/project: tool run: failed'))
   end)
+
+  it('returns spawn failures as nonzero system results', function()
+    local process = require('ts-pack.process')
+    local original_system = vim.system
+
+    vim.system = function()
+      error('ENOENT: executable not found', 0)
+    end
+
+    local result = process.system_result({ 'missing-tool' }, { cwd = '/tmp/project' })
+    vim.system = original_system
+
+    assert.equals(1, result.code)
+    assert.truthy(result.stderr:match('ENOENT'))
+  end)
 end)

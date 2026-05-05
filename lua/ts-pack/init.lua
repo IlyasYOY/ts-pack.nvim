@@ -248,14 +248,17 @@ function M.add(specs, opts)
     apply_hooks(parser)
     local item = info_for(parser.name, opts)
     item.spec = vim.deepcopy(parser)
-    local is_pending = not fs.exists(path.parser_path(parser.name, opts))
+    local needs_install = not fs.exists(path.parser_path(parser.name, opts))
+      or not lock.parsers[parser.name]
+      or opts.force
+      or opts.target
     if opts.async then
-      item.pending = is_pending
+      item.pending = needs_install
     end
     if opts.info ~= false then
       add_info(item, parser.name)
     end
-    if is_pending or not lock.parsers[parser.name] or opts.force or opts.target then
+    if needs_install then
       pending[#pending + 1] = parser
       pending_indexes[#pending_indexes + 1] = index
     end

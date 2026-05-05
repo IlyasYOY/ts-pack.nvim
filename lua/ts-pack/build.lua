@@ -8,6 +8,14 @@ local function grammar_source(spec)
   return spec.generate_from_json == false and 'src/grammar.js' or 'src/grammar.json'
 end
 
+local function env_or(name, fallback)
+  local value = vim.env[name]
+  if value and value ~= '' then
+    return value
+  end
+  return fallback
+end
+
 function M.generate(spec, root)
   if not spec.generate then
     return
@@ -36,23 +44,47 @@ function M.generate_async(spec, root)
   }, { cwd = root, env = { TREE_SITTER_JS_RUNTIME = 'native' } })
 end
 
-local function compile_command(root)
-  local cmd = { 'cc', '-fPIC', '-I', 'src', '-o', 'parser.so' }
+local function shared_flag()
   if vim.fn.has('mac') == 1 then
-    cmd[#cmd + 1] = '-dynamiclib'
-  else
-    cmd[#cmd + 1] = '-shared'
+    return '-dynamiclib'
+  end
+  return '-shared'
+end
+
+local function compile_commands(root)
+  local cc = env_or('CC', 'cc')
+  local cxx = env_or('CXX', 'c++')
+  local has_scanner_c = fs.exists(path.join(root, 'src', 'scanner.c'))
+  local has_scanner_cc = fs.exists(path.join(root, 'src', 'scanner.cc'))
+  local commands = {}
+  local objects = {}
+
+  local function add_compile(compiler, source, object)
+    commands[#commands + 1] = { compiler, '-fPIC', '-I', 'src', '-c', source, '-o', object }
+    objects[#objects + 1] = object
   end
 
-  cmd[#cmd + 1] = 'src/parser.c'
-  if fs.exists(path.join(root, 'src', 'scanner.c')) then
-    cmd[#cmd + 1] = 'src/scanner.c'
+  add_compile(cc, 'src/parser.c', 'parser.o')
+  if has_scanner_c then
+    add_compile(cc, 'src/scanner.c', 'scanner.o')
   end
-  if fs.exists(path.join(root, 'src', 'scanner.cc')) then
-    cmd[#cmd + 1] = 'src/scanner.cc'
+  if has_scanner_cc then
+    add_compile(cxx, 'src/scanner.cc', 'scanner.cc.o')
   end
 
-  return cmd
+  local link = { has_scanner_cc and cxx or cc, '-o', 'parser.so', shared_flag() }
+  for _, object in ipairs(objects) do
+    link[#link + 1] = object
+  end
+  commands[#commands + 1] = link
+
+  return commands
+end
+
+local function compile_fallback(root, runner)
+  for _, command in ipairs(compile_commands(root)) do
+    runner(command, { cwd = root })
+  end
 end
 
 function M.compile(root)
@@ -66,7 +98,7 @@ function M.compile(root)
     error(process.shell_error(build_cmd, root, result), 0)
   end
 
-  process.system(compile_command(root), { cwd = root })
+  compile_fallback(root, process.system)
 end
 
 function M.compile_async(root)
@@ -80,7 +112,7 @@ function M.compile_async(root)
     error(process.shell_error(build_cmd, root, result), 0)
   end
 
-  process.async_system(compile_command(root), { cwd = root })
+  compile_fallback(root, process.async_system)
 end
 
 return M

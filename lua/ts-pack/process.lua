@@ -21,16 +21,28 @@ end
 
 function M.system(cmd, opts)
   opts = opts or {}
-  local result = vim.system(cmd, { cwd = opts.cwd, text = true, env = opts.env }):wait()
+  local result = M.system_result(cmd, opts)
   if result.code ~= 0 then
     error(M.shell_error(cmd, opts.cwd, result), 0)
   end
   return result
 end
 
+local function spawn_error(err)
+  return {
+    code = 1,
+    stderr = tostring(err),
+    stdout = '',
+  }
+end
+
 function M.system_result(cmd, opts)
   opts = opts or {}
-  return vim.system(cmd, { cwd = opts.cwd, text = true, env = opts.env }):wait()
+  local ok, proc = pcall(vim.system, cmd, { cwd = opts.cwd, text = true, env = opts.env })
+  if not ok then
+    return spawn_error(proc)
+  end
+  return proc:wait()
 end
 
 function M.async_system_result(cmd, opts)
@@ -49,7 +61,7 @@ function M.async_system_result(cmd, opts)
   end)
 
   if not ok then
-    error(err, 0)
+    return spawn_error(err)
   end
 
   return coroutine.yield()
