@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Neovim ${{ matrix.nvim_version }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nvim_version: v0.10.4
+            experimental: false
+          - nvim_version: v0.11.7
+            experimental: false
+          - nvim_version: v0.12.1
+            experimental: false
+          - nvim_version: nightly
+            experimental: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential lua5.1 luarocks
+
+      - name: Install Lua dependencies
+        run: sudo luarocks install luacheck 1.2.0-1
+
+      - name: Install Tree-sitter CLI
+        run: npm install --global tree-sitter-cli@0.25.9
+
+      - name: Install StyLua
+        uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: 2.3.1
+          args: false
+
+      - name: Restore parser cache
+        if: ${{ !matrix.experimental }}
+        uses: actions/cache@v5
+        with:
+          path: .test-parsers
+          key: >-
+            ${{ runner.os }}-nvim-${{ matrix.nvim_version }}-parsers-${{
+            hashFiles(
+              'Makefile',
+              'lua/ts-pack/library.lua',
+              'lua/ts-pack/bundled_queries/**/*.scm',
+              'tests/query/**/*',
+              'tests/indent/**/*'
+            )
+            }}
+          restore-keys: |
+            ${{ runner.os }}-nvim-${{ matrix.nvim_version }}-parsers-
+
+      - name: Check
+        run: make check NVIM_VERSION=${{ matrix.nvim_version }}
