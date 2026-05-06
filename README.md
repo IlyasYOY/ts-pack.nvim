@@ -2,6 +2,21 @@
 
 Lua-only Tree-sitter parser management for Neovim, shaped after `vim.pack`.
 
+## Acknowledgements
+
+`ts-pack.nvim` is mainly a fork of
+[`nvim-treesitter`](https://github.com/nvim-treesitter/nvim-treesitter)'s parser
+and query management pieces, reduced to a Lua-only API shaped after `vim.pack`.
+It keeps the parser registry, bundled queries, dependency expansion, install
+flow, indentation engine, and health-reporting ideas, while intentionally
+leaving out the startup plugin layer, user commands, tiered language UX, and
+install log UI.
+
+Many thanks to the `nvim-treesitter` maintainers and contributors for the years
+of work that made Tree-sitter in Neovim practical and approachable.
+
+## Usage
+
 `ts-pack.nvim` does not install parser binaries automatically and does not ship
 user commands or `plugin/` startup files. Call the Lua API with complete parser
 specs:
@@ -321,15 +336,6 @@ unset:
 ```sh
 make test NVIM=/path/to/nvim
 ```
-
-## Acknowledgements
-
-`ts-pack.nvim` is built on ideas and implementation patterns from
-[`nvim-treesitter`](https://github.com/nvim-treesitter/nvim-treesitter), whose
-parser management code has been the main reference for this project.
-
-Many thanks to the `nvim-treesitter` maintainers and contributors for the years
-of work that made Tree-sitter in Neovim practical and approachable.
 
 ## License
 
