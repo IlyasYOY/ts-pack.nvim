@@ -64,6 +64,71 @@ ts_pack.add(library.select({
 }))
 ```
 
+## Setup
+
+Install `ts-pack.nvim` with your plugin manager, then keep your parser list in
+the same startup config. `add()` registers parser metadata immediately and
+installs missing parser artifacts; pass `async = true` if you want installation
+to continue in the background after startup.
+
+With `lazy.nvim`:
+
+```lua
+return {
+  {
+    'IlyasYOY/ts-pack.nvim',
+    lazy = false,
+    config = function()
+      local ts_pack = require('ts-pack')
+      local library = require('ts-pack.library')
+
+      ts_pack.setup({
+        -- Optional: limit concurrent parser installs.
+        install_jobs = nil,
+      })
+
+      ts_pack.add(library.select({
+        'lua',
+        'vim',
+        'vimdoc',
+        'query',
+        'markdown',
+        'markdown_inline',
+      }), { async = true })
+    end,
+  },
+}
+```
+
+With Neovim's built-in `vim.pack`:
+
+```lua
+vim.pack.add({
+  { src = 'https://github.com/IlyasYOY/ts-pack.nvim' },
+})
+
+local ts_pack = require('ts-pack')
+local library = require('ts-pack.library')
+
+ts_pack.setup({
+  -- Optional: limit concurrent parser installs.
+  install_jobs = nil,
+})
+
+ts_pack.add(library.select({
+  'lua',
+  'vim',
+  'vimdoc',
+  'query',
+  'markdown',
+  'markdown_inline',
+}), { async = true })
+```
+
+The examples use `library.select()` so parser dependencies and bundled queries
+are selected together. For custom parsers, pass full specs to `ts_pack.add()`
+instead.
+
 ## API
 
 ```lua
@@ -230,19 +295,49 @@ Deleting a parser removes:
 - `queries/<name>/`
 - the parser entry from `ts-pack-lock.json`
 
-## Indentation
+## Tree-sitter features
 
-Tree-sitter indentation is available as an opt-in buffer-local `indentexpr`.
-Install a parser and an `indents.scm` query first, then enable it from an
-`ftplugin` or `FileType` autocommand:
+`ts-pack` installs parser binaries and query files. It does not automatically
+enable Tree-sitter features for buffers. After parsers and matching queries are
+installed, enable the Neovim features you want from an `ftplugin` or `FileType`
+autocommand.
+
+Enable Tree-sitter highlighting with Neovim's built-in highlighter:
 
 ```lua
-vim.bo.indentexpr = "v:lua.require'ts-pack.indent'.expr()"
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'lua', 'vim', 'help', 'query', 'markdown' },
+  callback = function(ev)
+    vim.treesitter.start(ev.buf)
+  end,
+})
 ```
 
-`ts-pack` does not enable indentation automatically. Library-selected parsers
-with bundled indent queries, or user specs with their own `queries`, can be
-used by this expression after their queries are installed.
+Enable Tree-sitter indentation with the `ts-pack` indentation engine. The parser
+must have an `indents.scm` query, either from bundled queries selected by
+`library.select()` or from a custom spec with `queries` or `bundled_queries`:
+
+```lua
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'lua' },
+  callback = function(ev)
+    vim.bo[ev.buf].indentexpr = "v:lua.require'ts-pack.indent'.expr()"
+  end,
+})
+```
+
+Enable Tree-sitter folds with Neovim's built-in `foldexpr`. Each parser needs a
+matching `folds.scm` query:
+
+```lua
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'lua', 'vim', 'query', 'markdown' },
+  callback = function(ev)
+    vim.wo.foldmethod = 'expr'
+    vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+  end,
+})
+```
 
 ## Health checks
 
