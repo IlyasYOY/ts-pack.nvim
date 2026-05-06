@@ -23,7 +23,7 @@ ts_pack.add({
     -- Optional parser build fields.
     location = nil,
     path = nil,
-    queries_path = nil,
+    queries = nil,
     bundled_queries = nil,
     generate = nil,
     generate_from_json = nil,
@@ -106,7 +106,7 @@ For a small imported set, library-selected specs also install bundled
 to `library.select()` output only; hand-written specs do not receive them unless
 they set `bundled_queries` explicitly.
 
-`queries_path` copies a query directory from the parser checkout unchanged. It is
+`queries` copies a query directory from the parser checkout unchanged. It is
 not filtered. `bundled_queries = true` copies all bundled `.scm` files available
 for the parser, while a table copies only enabled query types:
 
@@ -211,7 +211,7 @@ vim.bo.indentexpr = "v:lua.require'ts-pack.indent'.expr()"
 ```
 
 `ts-pack` does not enable indentation automatically. Library-selected parsers
-with bundled indent queries, or user specs with their own `queries_path`, can be
+with bundled indent queries, or user specs with their own `queries`, can be
 used by this expression after their queries are installed.
 
 ## Health checks
@@ -255,7 +255,7 @@ Parser artifacts are installed under `stdpath('data')/site`:
 
 - `parser/<name>.so`
 - `parser-info/<name>.revision`
-- `queries/<name>/` when `spec.queries_path` is provided or a library-selected parser
+- `queries/<name>/` when `spec.queries` is provided or a library-selected parser
   has bundled queries. A filtered bundled query table may create only selected
   `.scm` files, and `{}` leaves no bundled query files installed.
 

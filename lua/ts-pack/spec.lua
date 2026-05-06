@@ -51,10 +51,6 @@ function M.normalize_spec(spec)
     error('`spec.name` must be a non-empty string', 3)
   end
 
-  if spec.queries ~= nil then
-    error('`spec.queries` is not supported; use `spec.queries_path`', 3)
-  end
-
   return {
     src = spec.src,
     name = name,
@@ -63,7 +59,7 @@ function M.normalize_spec(spec)
     branch = spec.branch,
     location = spec.location,
     path = spec.path,
-    queries_path = spec.queries_path,
+    queries = spec.queries,
     bundled_queries = validate_bundled_queries(spec.bundled_queries),
     generate = spec.generate,
     generate_from_json = spec.generate_from_json,

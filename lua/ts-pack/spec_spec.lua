@@ -20,7 +20,7 @@ describe('ts-pack.spec', function()
       branch = 'main',
       location = 'grammar',
       path = '/tmp/tree-sitter-fixture',
-      queries_path = 'queries/fixture',
+      queries = 'queries/fixture',
       bundled_queries = bundled_queries,
       generate = true,
       generate_from_json = false,
@@ -34,7 +34,7 @@ describe('ts-pack.spec', function()
       branch = 'main',
       location = 'grammar',
       path = '/tmp/tree-sitter-fixture',
-      queries_path = 'queries/fixture',
+      queries = 'queries/fixture',
       bundled_queries = bundled_queries,
       generate = true,
       generate_from_json = false,
@@ -67,22 +67,6 @@ describe('ts-pack.spec', function()
         bundled_queries = {},
       }).bundled_queries
     )
-  end)
-
-  it('rejects legacy query path fields', function()
-    local spec = require('ts-pack.spec')
-
-    for _, queries in ipairs({ 'queries/fixture', false }) do
-      local ok, err = pcall(function()
-        spec.normalize_spec({
-          src = '/tmp/tree-sitter-fixture',
-          queries = queries,
-        })
-      end)
-
-      assert.falsy(ok)
-      assert.truthy(err:match('`spec.queries` is not supported'))
-    end
   end)
 
   it('rejects invalid bundled query filters', function()

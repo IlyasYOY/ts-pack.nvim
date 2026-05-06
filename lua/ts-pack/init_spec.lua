@@ -154,7 +154,7 @@ describe('ts-pack', function()
       {
         src = repo,
         version = 'HEAD',
-        queries_path = 'queries/fixture',
+        queries = 'queries/fixture',
         generate = false,
         generate_from_json = true,
       },
@@ -164,7 +164,7 @@ describe('ts-pack', function()
     assert.truthy(info.active)
     assert.equals(repo, info.spec.src)
     assert.equals('fixture', info.spec.name)
-    assert.equals('queries/fixture', info.spec.queries_path)
+    assert.equals('queries/fixture', info.spec.queries)
     assert.equals(false, info.spec.generate)
     assert.equals(true, info.spec.generate_from_json)
   end)
@@ -183,7 +183,7 @@ describe('ts-pack', function()
     local ts_pack = require('ts-pack')
 
     ts_pack.add({
-      { src = repo, name = 'fixture', version = 'HEAD', queries_path = 'queries/fixture' },
+      { src = repo, name = 'fixture', version = 'HEAD', queries = 'queries/fixture' },
     }, { quiet = true })
 
     local lock = read_lock()
@@ -289,7 +289,7 @@ describe('ts-pack', function()
     local ts_pack = require('ts-pack')
 
     ts_pack.add({
-      { src = repo, name = 'fixture', queries_path = 'queries/fixture' },
+      { src = repo, name = 'fixture', queries = 'queries/fixture' },
     }, { quiet = true })
     ts_pack.del({ 'fixture' })
 
