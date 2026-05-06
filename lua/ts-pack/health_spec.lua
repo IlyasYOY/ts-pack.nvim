@@ -46,6 +46,34 @@ local function has_record(records, kind, pattern)
   return false
 end
 
+local function with_mocked_commands(commands, fn)
+  local original_executable = vim.fn.executable
+  local original_exepath = vim.fn.exepath
+  local original_system = vim.fn.system
+
+  vim.fn.executable = function(name)
+    return commands[name] and 1 or 0
+  end
+  vim.fn.exepath = function(name)
+    return commands[name] and commands[name].path or ''
+  end
+  vim.fn.system = function(cmd)
+    local command = commands[cmd[1]]
+    return command and command.output or ''
+  end
+
+  local ok, result = pcall(fn)
+
+  vim.fn.executable = original_executable
+  vim.fn.exepath = original_exepath
+  vim.fn.system = original_system
+
+  if not ok then
+    error(result, 2)
+  end
+  return result
+end
+
 local function lockfile()
   return require('ts-pack.path').lockfile()
 end
@@ -74,10 +102,62 @@ describe('ts-pack.health', function()
       require('ts-pack.health').check()
     end)
 
+    assert.truthy(has_record(records, 'start', '^ts%-pack: requirements$'))
+    assert.truthy(has_record(records, 'ok', '^Neovim '))
     assert.truthy(has_record(records, 'start', '^ts%-pack: paths$'))
+    assert.truthy(has_record(records, 'info', '^Default site directory: '))
     assert.truthy(has_record(records, 'info', '^Parser directory: '))
+    assert.truthy(has_record(records, 'ok', '^Parser directory is writable or creatable'))
     assert.truthy(has_record(records, 'info', '^Lockfile is absent$'))
     assert.truthy(has_record(records, 'info', '^No parsers found$'))
+  end)
+
+  it('reports tool locations and versions for installer dependencies', function()
+    local records = with_mocked_commands({
+      git = { path = '/test/git', output = 'git version 2.44.0' },
+      ['tree-sitter'] = { path = '/test/tree-sitter', output = 'tree-sitter 0.26.1' },
+      cc = { path = '/test/cc', output = 'cc 1.0.0' },
+      ['c++'] = { path = '/test/c++', output = 'c++ 1.0.0' },
+    }, function()
+      return capture_health(function()
+        require('ts-pack.health').check()
+      end)
+    end)
+
+    assert.truthy(has_record(records, 'ok', '^git: git version 2%.44%.0 %(/test/git'))
+    assert.truthy(
+      has_record(records, 'ok', '^tree%-sitter: tree%-sitter 0%.26%.1 %(/test/tree%-sitter')
+    )
+    assert.truthy(has_record(records, 'ok', '^C compiler: cc 1%.0%.0 %(/test/cc'))
+    assert.truthy(has_record(records, 'ok', '^C%+%+ compiler: c%+%+ 1%.0%.0 %(/test/c%+%+'))
+  end)
+
+  it('errors when tree-sitter is missing for generated active parser specs', function()
+    package.loaded['ts-pack'] = {
+      get = function()
+        return {
+          {
+            spec = {
+              name = 'generated',
+              src = '/tmp/tree-sitter-generated',
+              generate = true,
+            },
+          },
+        }
+      end,
+    }
+
+    local records = with_mocked_commands({
+      git = { path = '/test/git', output = 'git version 2.44.0' },
+      cc = { path = '/test/cc', output = 'cc 1.0.0' },
+      ['c++'] = { path = '/test/c++', output = 'c++ 1.0.0' },
+    }, function()
+      return capture_health(function()
+        require('ts-pack.health').check()
+      end)
+    end)
+
+    assert.truthy(has_record(records, 'error', '^tree%-sitter CLI not found; .*generated'))
   end)
 
   it('reports matching installed and locked parser revisions', function()
@@ -132,6 +212,27 @@ describe('ts-pack.health', function()
     assert.truthy(has_record(records, 'start', '^ts%-pack: queries$'))
     assert.truthy(has_record(records, 'ok', '^fixture: highlights %(.+queries/fixture%)'))
     assert.truthy(has_record(records, 'ok', '^fixture: .*injections %(.+queries/fixture%)'))
+  end)
+
+  it('parses valid managed queries when the parser is loadable', function()
+    write(query_path('lua', 'highlights'), { '(identifier) @variable' })
+
+    local records = capture_health(function()
+      require('ts-pack.health').check()
+    end)
+
+    assert.truthy(has_record(records, 'start', '^ts%-pack: query parse$'))
+    assert.truthy(has_record(records, 'ok', '^Parsed 1 managed query file$'))
+  end)
+
+  it('errors on invalid managed queries when the parser is loadable', function()
+    write(query_path('lua', 'highlights'), { '((identifier) @variable' })
+
+    local records = capture_health(function()
+      require('ts-pack.health').check()
+    end)
+
+    assert.truthy(has_record(records, 'error', '^lua/highlights %('))
   end)
 
   it('reports runtimepath queries separately', function()

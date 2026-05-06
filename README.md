@@ -249,12 +249,15 @@ used by this expression after their queries are installed.
 Run `:checkhealth ts-pack` to inspect the parser and query artifacts managed by
 `ts-pack`.
 
-The report includes the parser, parser-info, query, cache, and lockfile paths;
-installed parser binaries; active parsers registered in the current session;
-lockfile entries; local parser revisions; and the query files materialized under
-`stdpath('data')/site/queries`. It also lists all Tree-sitter queries visible on
-`runtimepath` in a separate section, so queries provided by Neovim or other
-plugins are not confused with files managed by `ts-pack`.
+The report includes Neovim and Tree-sitter ABI details; installer toolchain
+checks for `git`, `tree-sitter`, `CC`/`cc`, and `CXX`/`c++`; parser, parser-info,
+query, cache, and lockfile path writability; installed parser binaries; active
+parsers registered in the current session; lockfile entries; local parser
+revisions; and the query files materialized under `stdpath('data')/site/queries`.
+It parses managed query files when the matching parser can be loaded. It also
+lists all Tree-sitter queries visible on `runtimepath` in a separate section, so
+queries provided by Neovim or other plugins are not confused with files managed
+by `ts-pack`.
 
 A warning for a local revision that differs from the lockfile means the parser
 binary on disk was not built from the revision recorded in
