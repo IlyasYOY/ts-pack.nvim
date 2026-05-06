@@ -24,8 +24,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - nvim_version: v0.10.4
-            experimental: false
           - nvim_version: v0.11.7
             experimental: false
           - nvim_version: v0.12.1

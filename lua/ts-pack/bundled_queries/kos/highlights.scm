@@ -1,5 +1,8 @@
 (hash_bang) @keyword.directive
 
+((comment) @keyword.directive
+  (#lua-match? @keyword.directive "^#!"))
+
 (comment) @comment @spell
 
 (number) @number

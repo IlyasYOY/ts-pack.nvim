@@ -63,7 +63,7 @@ end
 
 local function set_buf_indent_opts(opts)
   local optnames =
-    { 'tabstop', 'shiftwidth', 'softtabstop', 'expandtab', 'filetype', 'lispoptions' }
+    { 'filetype', 'tabstop', 'shiftwidth', 'softtabstop', 'expandtab', 'lispoptions' }
   for _, opt in ipairs(optnames) do
     if opts[opt] ~= nil then
       vim.bo[opt] = opts[opt]
@@ -89,6 +89,7 @@ function M.run_indent_test(file, runner, opts)
   vim.cmd.edit(vim.fn.fnameescape(file))
   local before = vim.api.nvim_buf_get_lines(0, 0, -1, true)
 
+  opts = vim.tbl_extend('keep', opts or {}, { filetype = lang })
   set_buf_indent_opts(opts)
   vim.bo.indentexpr = "v:lua.require'ts-pack.indent'.expr()"
   assert.are.same("v:lua.require'ts-pack.indent'.expr()", vim.bo.indentexpr)

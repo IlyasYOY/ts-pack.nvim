@@ -15,6 +15,12 @@ install log UI.
 Many thanks to the `nvim-treesitter` maintainers and contributors for the years
 of work that made Tree-sitter in Neovim practical and approachable.
 
+## Requirements
+
+`ts-pack.nvim` supports Neovim 0.11 and newer. CI runs required checks on the
+latest 0.11 and 0.12 releases, with nightly tracked as a non-blocking job.
+Neovim 0.10 is no longer supported.
+
 ## Usage
 
 `ts-pack.nvim` does not install parser binaries automatically and does not ship

@@ -123,7 +123,11 @@ function M.get_indent(lnum)
     return -1
   end
 
-  parser:parse({ vim.fn.line('w0') - 1, vim.fn.line('w$') })
+  if vim.fn.has('nvim-0.12') == 1 then
+    parser:parse({ vim.fn.line('w0') - 1, vim.fn.line('w$') })
+  else
+    parser:parse(true)
+  end
 
   local root, lang_tree
   parser:for_each_tree(function(tstree, tree)

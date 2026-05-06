@@ -12,6 +12,7 @@ local FT_OVERRIDES = {
   hcl = 'terraform',
   http = 'http',
   jsx = 'javascript',
+  kos = 'kos',
   ncl = 'nickel',
   ql = 'ql',
   res = 'rescript',
@@ -80,11 +81,11 @@ end
 function M.lang_for_file(file)
   local buf = vim.fn.bufadd(file)
   vim.fn.bufload(buf)
-  local ft = vim.bo[buf].filetype
+  local ft = FT_OVERRIDES[file_ext(file)] or vim.bo[buf].filetype
   if ft == '' then
     ft = M.lang_for_path(file)
-    vim.bo[buf].filetype = ft
   end
+  vim.bo[buf].filetype = ft
   return buf, normalize_lang(ft)
 end
 

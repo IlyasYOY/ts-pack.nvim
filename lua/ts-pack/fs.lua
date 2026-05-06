@@ -29,9 +29,60 @@ function M.read_json(target, fallback)
   return parsed
 end
 
+local function sorted_keys(value)
+  local keys = vim.tbl_keys(value)
+  table.sort(keys, function(a, b)
+    return tostring(a) < tostring(b)
+  end)
+  return keys
+end
+
+local function is_array(value)
+  local count = 0
+  for key in pairs(value) do
+    if type(key) ~= 'number' or key < 1 or key % 1 ~= 0 then
+      return false
+    end
+    count = count + 1
+  end
+  return count == #value
+end
+
+local function encode_json(value, level)
+  if type(value) ~= 'table' then
+    return vim.json.encode(value)
+  end
+
+  local keys = (is_array(value) and #value > 0) and nil or sorted_keys(value)
+  local count = keys and #keys or #value
+  if count == 0 then
+    return keys and '{}' or '[]'
+  end
+
+  local indent = string.rep('  ', level)
+  local child_indent = indent .. '  '
+  local lines = { keys and '{' or '[' }
+
+  for index = 1, count do
+    local key = keys and keys[index] or index
+    local item = child_indent
+    if keys then
+      item = item .. vim.json.encode(tostring(key)) .. ': '
+    end
+    item = item .. encode_json(value[key], level + 1)
+    if index < count then
+      item = item .. ','
+    end
+    lines[#lines + 1] = item
+  end
+
+  lines[#lines + 1] = indent .. (keys and '}' or ']')
+  return table.concat(lines, '\n')
+end
+
 function M.write_json(target, value)
   M.ensure_dir(vim.fs.dirname(target))
-  local encoded = vim.json.encode(value, { indent = '  ', sort_keys = true })
+  local encoded = encode_json(value, 0)
   vim.fn.writefile(vim.split(encoded, '\n'), target)
 end
 
