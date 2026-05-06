@@ -111,6 +111,12 @@ local function copy_query_files(files, dst)
   end
 end
 
+local function materialize_query_dir(src, dst, filter)
+  local files = selected_query_files(src, filter)
+  copy_query_files(files, dst)
+  return files
+end
+
 local function inherited_languages(file)
   local first = vim.fn.readfile(file, '', 1)[1]
   local inherited = first and first:match('^;%s*inherits:%s*(.+)$')
@@ -143,7 +149,7 @@ function M.materialize(spec, source_root, opts)
 
   local dst = path.query_path(spec.name, opts)
   if filter then
-    copy_query_files(selected_query_files(src, filter), dst)
+    materialize_query_dir(src, dst, filter)
   else
     fs.copy_tree(src, dst)
   end
@@ -168,16 +174,17 @@ function M.materialize_bundled(spec, opts)
       return
     end
 
-    local files = selected_query_files(src, filter)
+    local files
 
     if filter == true then
+      files = selected_query_files(src, filter)
       M.register_predicates()
       fs.copy_tree(src, path.query_path(name, opts))
     else
+      files = materialize_query_dir(src, path.query_path(name, opts), filter)
       if #files > 0 then
         M.register_predicates()
       end
-      copy_query_files(files, path.query_path(name, opts))
     end
 
     for _, file in ipairs(files) do

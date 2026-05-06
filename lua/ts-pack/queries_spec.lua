@@ -12,6 +12,10 @@ local function materialize_opts()
   return { dir = materialized_site() }
 end
 
+local function materialized_dir(lang)
+  return require('ts-pack.path').query_path(lang, materialize_opts())
+end
+
 local function reset_materialized()
   vim.fn.delete(materialized_site(), 'rf')
   vim.fn.delete(query_source(), 'rf')
@@ -23,7 +27,7 @@ local function write(path, lines)
 end
 
 local function materialized_files(lang)
-  local dir = require('ts-pack.path').query_path(lang, materialize_opts())
+  local dir = materialized_dir(lang)
   if not vim.uv.fs_stat(dir) then
     return {}
   end
@@ -142,13 +146,7 @@ describe('ts-pack.queries', function()
 
     assert.same({ 'highlights.scm' }, materialized_files('fixture'))
     assert.falsy(
-      vim.uv.fs_stat(
-        vim.fs.joinpath(
-          require('ts-pack.path').query_path('fixture', materialize_opts()),
-          'nested',
-          'locals.scm'
-        )
-      )
+      vim.uv.fs_stat(vim.fs.joinpath(materialized_dir('fixture'), 'nested', 'locals.scm'))
     )
   end)
 
@@ -167,7 +165,82 @@ describe('ts-pack.queries', function()
       },
     }, root, materialize_opts())
 
-    assert.falsy(vim.uv.fs_stat(require('ts-pack.path').query_path('fixture', materialize_opts())))
+    assert.falsy(vim.uv.fs_stat(materialized_dir('fixture')))
+  end)
+
+  describe('filtered query materialization', function()
+    it('applies parser query filters to top-level scm files only', function()
+      local queries = require('ts-pack.queries')
+      local root = query_source()
+
+      write(vim.fs.joinpath(root, 'queries', 'fixture', 'folds.scm'), { '; folds' })
+      write(vim.fs.joinpath(root, 'queries', 'fixture', 'highlights.scm'), { '; highlights' })
+      write(vim.fs.joinpath(root, 'queries', 'fixture', 'indents.scm'), { '; indents' })
+      write(vim.fs.joinpath(root, 'queries', 'fixture', 'README.md'), { 'notes' })
+      write(vim.fs.joinpath(root, 'queries', 'fixture', 'nested', 'locals.scm'), { '; locals' })
+
+      queries.materialize({
+        name = 'fixture',
+        queries = {
+          path = 'queries/fixture',
+          filter = { folds = false, highlights = true, indents = true, missing = true },
+        },
+      }, root, materialize_opts())
+
+      assert.same({ 'highlights.scm', 'indents.scm' }, materialized_files('fixture'))
+      assert.falsy(vim.uv.fs_stat(vim.fs.joinpath(materialized_dir('fixture'), 'README.md')))
+      assert.falsy(vim.uv.fs_stat(vim.fs.joinpath(materialized_dir('fixture'), 'nested')))
+    end)
+
+    it('removes stale parser query files when the parser filter is empty', function()
+      local queries = require('ts-pack.queries')
+      local root = query_source()
+
+      write(vim.fs.joinpath(root, 'queries', 'fixture', 'highlights.scm'), { '; highlights' })
+      write(vim.fs.joinpath(root, 'queries', 'fixture', 'indents.scm'), { '; indents' })
+
+      queries.materialize({
+        name = 'fixture',
+        queries = {
+          path = 'queries/fixture',
+          filter = { highlights = true },
+        },
+      }, root, materialize_opts())
+      queries.materialize({
+        name = 'fixture',
+        queries = {
+          path = 'queries/fixture',
+          filter = {},
+        },
+      }, root, materialize_opts())
+
+      assert.falsy(vim.uv.fs_stat(materialized_dir('fixture')))
+    end)
+
+    it('applies bundled query filters to top-level scm files only', function()
+      local queries = require('ts-pack.queries')
+
+      queries.materialize_bundled({
+        name = 'c',
+        bundled_queries = { folds = false, highlights = true, indents = true, missing = true },
+      }, materialize_opts())
+
+      assert.same({ 'highlights.scm', 'indents.scm' }, materialized_files('c'))
+      assert.falsy(vim.uv.fs_stat(vim.fs.joinpath(materialized_dir('c'), 'folds.scm')))
+      assert.falsy(vim.uv.fs_stat(vim.fs.joinpath(materialized_dir('c'), 'missing.scm')))
+    end)
+
+    it('removes stale bundled query files when the bundled filter is empty', function()
+      local queries = require('ts-pack.queries')
+
+      queries.materialize_bundled({
+        name = 'c',
+        bundled_queries = { highlights = true },
+      }, materialize_opts())
+      queries.materialize_bundled({ name = 'c', bundled_queries = {} }, materialize_opts())
+
+      assert.falsy(vim.uv.fs_stat(materialized_dir('c')))
+    end)
   end)
 
   it('materializes all bundled query files when enabled', function()
