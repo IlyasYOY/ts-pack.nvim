@@ -24,6 +24,7 @@ ts_pack.add({
     location = nil,
     path = nil,
     queries_path = nil,
+    bundled_queries = nil,
     generate = nil,
     generate_from_json = nil,
   },
@@ -103,7 +104,25 @@ needs them, duplicates are removed, and unknown parser names raise an error.
 For a small imported set, library-selected specs also install bundled
 `nvim-treesitter` queries alongside the parser. These bundled queries are scoped
 to `library.select()` output only; hand-written specs do not receive them unless
-they provide their own `queries_path`.
+they set `bundled_queries` explicitly.
+
+`queries_path` copies a query directory from the parser checkout unchanged. It is
+not filtered. `bundled_queries = true` copies all bundled `.scm` files available
+for the parser, while a table copies only enabled query types:
+
+```lua
+ts_pack.add({
+  {
+    src = 'https://github.com/tree-sitter/tree-sitter-lua',
+    name = 'lua',
+    bundled_queries = { highlights = true, indents = true },
+  },
+})
+```
+
+False table entries and unknown query types are ignored. An empty table,
+`bundled_queries = {}`, installs no bundled query `.scm` files and removes stale
+bundled files for that parser.
 
 ```lua
 local ts_pack = require('ts-pack')
@@ -237,7 +256,8 @@ Parser artifacts are installed under `stdpath('data')/site`:
 - `parser/<name>.so`
 - `parser-info/<name>.revision`
 - `queries/<name>/` when `spec.queries_path` is provided or a library-selected parser
-  has bundled queries
+  has bundled queries. A filtered bundled query table may create only selected
+  `.scm` files, and `{}` leaves no bundled query files installed.
 
 The lockfile is written to:
 

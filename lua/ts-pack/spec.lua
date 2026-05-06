@@ -16,6 +16,27 @@ function M.basename(src)
   return name:gsub('^tree%-sitter%-', '')
 end
 
+local function validate_bundled_queries(value)
+  if value == nil or type(value) == 'boolean' then
+    return value
+  end
+
+  if type(value) ~= 'table' then
+    error('`spec.bundled_queries` must be a boolean or a table<string, boolean>', 3)
+  end
+
+  for key, enabled in pairs(value) do
+    if type(key) ~= 'string' then
+      error('`spec.bundled_queries` must be a table<string, boolean>', 3)
+    end
+    if type(enabled) ~= 'boolean' then
+      error('`spec.bundled_queries` values must be booleans', 3)
+    end
+  end
+
+  return value
+end
+
 function M.normalize_spec(spec)
   if type(spec) == 'string' then
     spec = { src = spec }
@@ -30,6 +51,10 @@ function M.normalize_spec(spec)
     error('`spec.name` must be a non-empty string', 3)
   end
 
+  if spec.queries ~= nil then
+    error('`spec.queries` is not supported; use `spec.queries_path`', 3)
+  end
+
   return {
     src = spec.src,
     name = name,
@@ -39,7 +64,7 @@ function M.normalize_spec(spec)
     location = spec.location,
     path = spec.path,
     queries_path = spec.queries_path,
-    bundled_queries = spec.bundled_queries,
+    bundled_queries = validate_bundled_queries(spec.bundled_queries),
     generate = spec.generate,
     generate_from_json = spec.generate_from_json,
   }

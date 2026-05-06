@@ -75,11 +75,46 @@ function M.register_predicates()
   registered_predicates = true
 end
 
+local function selected_query_files(src, filter)
+  local files = {}
+
+  for name, type_ in vim.fs.dir(src) do
+    local query_type = type_ == 'file' and name:match('^(.+)%.scm$')
+    if query_type and (filter == true or filter[query_type] == true) then
+      files[#files + 1] = {
+        name = name,
+        path = path.join(src, name),
+      }
+    end
+  end
+
+  table.sort(files, function(a, b)
+    return a.name < b.name
+  end)
+
+  return files
+end
+
+local function inherited_languages(file)
+  local first = vim.fn.readfile(file, '', 1)[1]
+  local inherited = first and first:match('^;%s*inherits:%s*(.+)$')
+  if not inherited then
+    return {}
+  end
+
+  local result = {}
+  for lang in inherited:gmatch('[^,%s]+') do
+    result[#result + 1] = lang
+  end
+  return result
+end
+
 function M.materialize_bundled(spec, opts)
   if not spec.bundled_queries then
     return
   end
 
+  local filter = spec.bundled_queries
   local seen = {}
 
   local function materialize(name)
@@ -93,16 +128,26 @@ function M.materialize_bundled(spec, opts)
       return
     end
 
-    M.register_predicates()
-    fs.copy_tree(src, path.query_path(name, opts))
+    local files = selected_query_files(src, filter)
 
-    for _, file in ipairs(vim.fn.globpath(src, '*.scm', false, true)) do
-      local first = vim.fn.readfile(file, '', 1)[1]
-      local inherited = first and first:match('^;%s*inherits:%s*(.+)$')
-      if inherited then
-        for lang in inherited:gmatch('[^,%s]+') do
-          materialize(lang)
+    if filter == true then
+      M.register_predicates()
+      fs.copy_tree(src, path.query_path(name, opts))
+    else
+      local dst = path.query_path(name, opts)
+      vim.fn.delete(dst, 'rf')
+      if #files > 0 then
+        M.register_predicates()
+        fs.ensure_dir(dst)
+        for _, file in ipairs(files) do
+          fs.copy_file(file.path, path.join(dst, file.name))
         end
+      end
+    end
+
+    for _, file in ipairs(files) do
+      for _, lang in ipairs(inherited_languages(file.path)) do
+        materialize(lang)
       end
     end
   end
