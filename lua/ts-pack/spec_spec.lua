@@ -19,7 +19,7 @@ describe('ts-pack.spec', function()
       branch = 'main',
       location = 'grammar',
       path = '/tmp/tree-sitter-fixture',
-      queries = 'queries/fixture',
+      queries_path = 'queries/fixture',
       bundled_queries = true,
       generate = true,
       generate_from_json = false,
@@ -33,11 +33,23 @@ describe('ts-pack.spec', function()
       branch = 'main',
       location = 'grammar',
       path = '/tmp/tree-sitter-fixture',
-      queries = 'queries/fixture',
+      queries_path = 'queries/fixture',
       bundled_queries = true,
       generate = true,
       generate_from_json = false,
     }, parser)
+  end)
+
+  it('does not keep legacy query path fields', function()
+    local spec = require('ts-pack.spec')
+
+    local parser = spec.normalize_spec({
+      src = '/tmp/tree-sitter-fixture',
+      queries = 'queries/fixture',
+    })
+
+    assert.falsy(parser.queries)
+    assert.falsy(parser.queries_path)
   end)
 
   it('deduplicates matching specs and rejects conflicting specs', function()

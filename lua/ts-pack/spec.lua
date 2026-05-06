@@ -38,7 +38,7 @@ function M.normalize_spec(spec)
     branch = spec.branch,
     location = spec.location,
     path = spec.path,
-    queries = spec.queries,
+    queries_path = spec.queries_path,
     bundled_queries = spec.bundled_queries,
     generate = spec.generate,
     generate_from_json = spec.generate_from_json,

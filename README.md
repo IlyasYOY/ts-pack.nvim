@@ -23,7 +23,7 @@ ts_pack.add({
     -- Optional parser build fields.
     location = nil,
     path = nil,
-    queries = nil,
+    queries_path = nil,
     generate = nil,
     generate_from_json = nil,
   },
@@ -103,7 +103,7 @@ needs them, duplicates are removed, and unknown parser names raise an error.
 For a small imported set, library-selected specs also install bundled
 `nvim-treesitter` queries alongside the parser. These bundled queries are scoped
 to `library.select()` output only; hand-written specs do not receive them unless
-they provide their own `queries` path.
+they provide their own `queries_path`.
 
 ```lua
 local ts_pack = require('ts-pack')
@@ -192,7 +192,7 @@ vim.bo.indentexpr = "v:lua.require'ts-pack.indent'.expr()"
 ```
 
 `ts-pack` does not enable indentation automatically. Library-selected parsers
-with bundled indent queries, or user specs with their own `queries` path, can be
+with bundled indent queries, or user specs with their own `queries_path`, can be
 used by this expression after their queries are installed.
 
 ## Health checks
@@ -236,7 +236,7 @@ Parser artifacts are installed under `stdpath('data')/site`:
 
 - `parser/<name>.so`
 - `parser-info/<name>.revision`
-- `queries/<name>/` when `spec.queries` is provided or a library-selected parser
+- `queries/<name>/` when `spec.queries_path` is provided or a library-selected parser
   has bundled queries
 
 The lockfile is written to:

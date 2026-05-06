@@ -62,7 +62,7 @@ M.registry = {
         'sh',
       },
     },
-    queries = 'queries',
+    queries_path = 'queries',
   },
   bass = {
     src = 'https://github.com/vito/tree-sitter-bass',
@@ -108,7 +108,7 @@ M.registry = {
   c = {
     src = 'https://github.com/tree-sitter/tree-sitter-c',
     version = 'ae19b676b13bdcc13b7665397e6d9b14975473dd',
-    queries = 'queries',
+    queries_path = 'queries',
   },
   c3 = {
     src = 'https://github.com/c3lang/tree-sitter-c3',
@@ -147,7 +147,7 @@ M.registry = {
   clojure = {
     src = 'https://github.com/sogaiu/tree-sitter-clojure',
     version = 'e43eff80d17cf34852dcd92ca5e6986d23a7040f',
-    queries = 'queries',
+    queries_path = 'queries',
   },
   cmake = {
     src = 'https://github.com/uyha/tree-sitter-cmake',
@@ -515,7 +515,7 @@ M.registry = {
   go = {
     src = 'https://github.com/tree-sitter/tree-sitter-go',
     version = '2346a3ab1bb3857b48b29d779a1ef9799a248cd7',
-    queries = 'queries',
+    queries_path = 'queries',
   },
   goctl = {
     src = 'https://github.com/chaozwn/tree-sitter-goctl',
@@ -533,12 +533,12 @@ M.registry = {
   gomod = {
     src = 'https://github.com/camdencheek/tree-sitter-go-mod',
     version = '2e886870578eeba1927a2dc4bd2e2b3f598c5f9a',
-    queries = 'queries',
+    queries_path = 'queries',
   },
   gosum = {
     src = 'https://github.com/tree-sitter-grammars/tree-sitter-go-sum',
     version = '27816eb6b7315746ae9fcf711e4e1396dc1cf237',
-    queries = 'queries',
+    queries_path = 'queries',
   },
   gotmpl = {
     src = 'https://github.com/ngalaiko/tree-sitter-go-template',
@@ -563,7 +563,7 @@ M.registry = {
   groovy = {
     src = 'https://github.com/murtaza64/tree-sitter-groovy',
     version = '781d9cd1b482a70a6b27091e5c9e14bbcab3b768',
-    queries = 'queries',
+    queries_path = 'queries',
   },
   groq = {
     src = 'https://github.com/ajrussellaudio/tree-sitter-groq',
@@ -708,12 +708,12 @@ M.registry = {
   java = {
     src = 'https://github.com/tree-sitter/tree-sitter-java',
     version = 'e10607b45ff745f5f876bfa3e94fbcc6b44bdc11',
-    queries = 'queries',
+    queries_path = 'queries',
   },
   javadoc = {
     src = 'https://github.com/rmuir/tree-sitter-javadoc',
     version = 'e2f56b4d0df08f6ed5df8bae266f9e75b340a9ab',
-    queries = 'queries',
+    queries_path = 'queries',
   },
   javascript = {
     src = 'https://github.com/tree-sitter/tree-sitter-javascript',
@@ -727,7 +727,7 @@ M.registry = {
         'js',
       },
     },
-    queries = 'queries',
+    queries_path = 'queries',
     requires = {
       'ecma',
       'jsx',
@@ -1811,7 +1811,7 @@ local function append_selected(result, seen, visiting, name)
   selected.name = name
   selected.requires = nil
   if require('ts-pack.queries').has_bundled(name) then
-    selected.queries = nil
+    selected.queries_path = nil
     selected.bundled_queries = true
   end
   result[#result + 1] = selected

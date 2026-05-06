@@ -7,11 +7,11 @@ local path = require('ts-pack.path')
 local queries = require('ts-pack.queries')
 
 local function materialize_queries(spec, source_root, opts)
-  if not spec.queries then
+  if not spec.queries_path then
     return
   end
 
-  local src = spec.queries
+  local src = spec.queries_path
   if not vim.startswith(src, '/') then
     src = path.join(source_root, src)
   end

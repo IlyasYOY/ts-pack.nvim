@@ -131,7 +131,7 @@ describe('ts-pack.library', function()
     assert.equals(true, marked.markdown)
     assert.equals(true, marked.markdown_inline)
     assert.equals(true, marked.bash)
-    assert.falsy(selected[1].queries)
+    assert.falsy(selected[1].queries_path)
   end)
 
   it('selects the current dotfiles parser set', function()
