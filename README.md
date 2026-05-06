@@ -186,6 +186,9 @@ For a small imported set, library-selected specs also install bundled
 to `library.select()` output only; hand-written specs do not receive them unless
 they set `bundled_queries` explicitly.
 
+See [docs/library.md](docs/library.md) for the complete parser registry
+reference.
+
 `queries` copies a query directory from the parser checkout. A string path keeps
 the directory unchanged, including nested files. A table copies only enabled
 top-level `.scm` query types:

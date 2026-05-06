@@ -1,5 +1,6 @@
 local M = {}
 
+-- Keep docs/library.md in sync when changing this parser registry.
 M.registry = {
   ada = {
     src = 'https://github.com/briot/tree-sitter-ada',
