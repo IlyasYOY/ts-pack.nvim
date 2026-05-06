@@ -16,6 +16,42 @@ function M.basename(src)
   return name:gsub('^tree%-sitter%-', '')
 end
 
+local function validate_query_filter(name, value)
+  if type(value) ~= 'table' then
+    error(('`%s` must be a table<string, boolean>'):format(name), 3)
+  end
+
+  for key, enabled in pairs(value) do
+    if type(key) ~= 'string' then
+      error(('`%s` must be a table<string, boolean>'):format(name), 3)
+    end
+    if type(enabled) ~= 'boolean' then
+      error(('`%s` values must be booleans'):format(name), 3)
+    end
+  end
+
+  return value
+end
+
+local function validate_queries(value)
+  if value == nil or type(value) == 'string' then
+    return value
+  end
+
+  if type(value) ~= 'table' then
+    error('`spec.queries` must be a string or a table with `path` and `filter`', 3)
+  end
+
+  if type(value.path) ~= 'string' or value.path == '' then
+    error('`spec.queries.path` must be a non-empty string', 3)
+  end
+
+  return {
+    path = value.path,
+    filter = validate_query_filter('spec.queries.filter', value.filter),
+  }
+end
+
 local function validate_bundled_queries(value)
   if value == nil or type(value) == 'boolean' then
     return value
@@ -25,16 +61,7 @@ local function validate_bundled_queries(value)
     error('`spec.bundled_queries` must be a boolean or a table<string, boolean>', 3)
   end
 
-  for key, enabled in pairs(value) do
-    if type(key) ~= 'string' then
-      error('`spec.bundled_queries` must be a table<string, boolean>', 3)
-    end
-    if type(enabled) ~= 'boolean' then
-      error('`spec.bundled_queries` values must be booleans', 3)
-    end
-  end
-
-  return value
+  return validate_query_filter('spec.bundled_queries', value)
 end
 
 function M.normalize_spec(spec)
@@ -59,7 +86,7 @@ function M.normalize_spec(spec)
     branch = spec.branch,
     location = spec.location,
     path = spec.path,
-    queries = spec.queries,
+    queries = validate_queries(spec.queries),
     bundled_queries = validate_bundled_queries(spec.bundled_queries),
     generate = spec.generate,
     generate_from_json = spec.generate_from_json,

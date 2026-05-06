@@ -76,6 +76,10 @@ function M.register_predicates()
 end
 
 local function selected_query_files(src, filter)
+  if not fs.exists(src) then
+    error(('query source does not exist: %s'):format(src), 0)
+  end
+
   local files = {}
 
   for name, type_ in vim.fs.dir(src) do
@@ -95,6 +99,18 @@ local function selected_query_files(src, filter)
   return files
 end
 
+local function copy_query_files(files, dst)
+  vim.fn.delete(dst, 'rf')
+  if #files == 0 then
+    return
+  end
+
+  fs.ensure_dir(dst)
+  for _, file in ipairs(files) do
+    fs.copy_file(file.path, path.join(dst, file.name))
+  end
+end
+
 local function inherited_languages(file)
   local first = vim.fn.readfile(file, '', 1)[1]
   local inherited = first and first:match('^;%s*inherits:%s*(.+)$')
@@ -107,6 +123,30 @@ local function inherited_languages(file)
     result[#result + 1] = lang
   end
   return result
+end
+
+function M.materialize(spec, source_root, opts)
+  if not spec.queries then
+    return
+  end
+
+  local src = spec.queries
+  local filter
+  if type(spec.queries) == 'table' then
+    src = spec.queries.path
+    filter = spec.queries.filter
+  end
+
+  if not vim.startswith(src, '/') then
+    src = path.join(source_root, src)
+  end
+
+  local dst = path.query_path(spec.name, opts)
+  if filter then
+    copy_query_files(selected_query_files(src, filter), dst)
+  else
+    fs.copy_tree(src, dst)
+  end
 end
 
 function M.materialize_bundled(spec, opts)
@@ -134,15 +174,10 @@ function M.materialize_bundled(spec, opts)
       M.register_predicates()
       fs.copy_tree(src, path.query_path(name, opts))
     else
-      local dst = path.query_path(name, opts)
-      vim.fn.delete(dst, 'rf')
       if #files > 0 then
         M.register_predicates()
-        fs.ensure_dir(dst)
-        for _, file in ipairs(files) do
-          fs.copy_file(file.path, path.join(dst, file.name))
-        end
       end
+      copy_query_files(files, path.query_path(name, opts))
     end
 
     for _, file in ipairs(files) do

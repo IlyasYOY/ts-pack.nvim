@@ -6,19 +6,6 @@ local git = require('ts-pack.git')
 local path = require('ts-pack.path')
 local queries = require('ts-pack.queries')
 
-local function materialize_queries(spec, source_root, opts)
-  if not spec.queries then
-    return
-  end
-
-  local src = spec.queries
-  if not vim.startswith(src, '/') then
-    src = path.join(source_root, src)
-  end
-
-  fs.copy_tree(src, path.query_path(spec.name, opts))
-end
-
 local function install_with(spec, opts, ensure_checkout, generate, compile, current_rev)
   opts = opts or {}
 
@@ -39,7 +26,7 @@ local function install_with(spec, opts, ensure_checkout, generate, compile, curr
   local rev = spec.path and (ref or spec.version or 'local') or current_rev(source_root)
   local parser_path = path.parser_path(spec.name, opts)
   fs.copy_file(path.join(build_root, 'parser.so'), parser_path)
-  materialize_queries(spec, source_root, opts)
+  queries.materialize(spec, source_root, opts)
   queries.materialize_bundled(spec, opts)
 
   fs.ensure_dir(path.parser_info_dir(opts))

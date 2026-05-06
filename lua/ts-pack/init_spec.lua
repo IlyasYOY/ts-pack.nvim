@@ -201,6 +201,44 @@ describe('ts-pack', function()
     )
   end)
 
+  it('installs only filtered parser query types', function()
+    local repo = make_parser_repo('fixture')
+    write(vim.fs.joinpath(repo, 'queries', 'fixture', 'indents.scm'), { '; indents' })
+    write(vim.fs.joinpath(repo, 'queries', 'fixture', 'locals.scm'), { '; locals' })
+    run({ 'git', 'add', '.' }, { cwd = repo })
+    run({ 'git', 'commit', '-m', 'add query files' }, { cwd = repo })
+
+    local ts_pack = require('ts-pack')
+
+    ts_pack.add({
+      {
+        src = repo,
+        name = 'fixture',
+        version = 'HEAD',
+        queries = {
+          path = 'queries/fixture',
+          filter = { highlights = true },
+        },
+      },
+    }, { quiet = true })
+
+    assert.truthy(
+      vim.uv.fs_stat(
+        vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'queries', 'fixture', 'highlights.scm')
+      )
+    )
+    assert.falsy(
+      vim.uv.fs_stat(
+        vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'queries', 'fixture', 'indents.scm')
+      )
+    )
+    assert.falsy(
+      vim.uv.fs_stat(
+        vim.fs.joinpath(vim.fn.stdpath('data'), 'site', 'queries', 'fixture', 'locals.scm')
+      )
+    )
+  end)
+
   it('updates to the lockfile revision when target is lockfile', function()
     local repo, rev = make_parser_repo('fixture')
     local ts_pack = require('ts-pack')

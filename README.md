@@ -106,9 +106,25 @@ For a small imported set, library-selected specs also install bundled
 to `library.select()` output only; hand-written specs do not receive them unless
 they set `bundled_queries` explicitly.
 
-`queries` copies a query directory from the parser checkout unchanged. It is
-not filtered. `bundled_queries = true` copies all bundled `.scm` files available
-for the parser, while a table copies only enabled query types:
+`queries` copies a query directory from the parser checkout. A string path keeps
+the directory unchanged, including nested files. A table copies only enabled
+top-level `.scm` query types:
+
+```lua
+ts_pack.add({
+  {
+    src = 'https://github.com/tree-sitter/tree-sitter-lua',
+    name = 'lua',
+    queries = {
+      path = 'queries/lua',
+      filter = { highlights = true, indents = true },
+    },
+  },
+})
+```
+
+`bundled_queries = true` copies all bundled `.scm` files available for the
+parser, while a table copies only enabled bundled query types:
 
 ```lua
 ts_pack.add({
@@ -120,9 +136,8 @@ ts_pack.add({
 })
 ```
 
-False table entries and unknown query types are ignored. An empty table,
-`bundled_queries = {}`, installs no bundled query `.scm` files and removes stale
-bundled files for that parser.
+False table entries and unknown query types are ignored. Empty filter tables
+install no query `.scm` files and remove stale files for that parser.
 
 ```lua
 local ts_pack = require('ts-pack')
@@ -256,8 +271,8 @@ Parser artifacts are installed under `stdpath('data')/site`:
 - `parser/<name>.so`
 - `parser-info/<name>.revision`
 - `queries/<name>/` when `spec.queries` is provided or a library-selected parser
-  has bundled queries. A filtered bundled query table may create only selected
-  `.scm` files, and `{}` leaves no bundled query files installed.
+  has bundled queries. Filtered query tables may create only selected `.scm`
+  files, and empty filters leave no query files installed.
 
 The lockfile is written to:
 

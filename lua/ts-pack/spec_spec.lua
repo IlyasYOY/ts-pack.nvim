@@ -69,6 +69,71 @@ describe('ts-pack.spec', function()
     )
   end)
 
+  it('keeps string and filtered parser queries', function()
+    local spec = require('ts-pack.spec')
+
+    assert.equals(
+      'queries/fixture',
+      spec.normalize_spec({
+        src = '/tmp/tree-sitter-fixture',
+        queries = 'queries/fixture',
+      }).queries
+    )
+
+    assert.same(
+      {
+        path = 'queries/fixture',
+        filter = { highlights = true, indents = false },
+      },
+      spec.normalize_spec({
+        src = '/tmp/tree-sitter-fixture',
+        queries = {
+          path = 'queries/fixture',
+          filter = { highlights = true, indents = false },
+        },
+      }).queries
+    )
+
+    assert.same(
+      {
+        path = 'queries/fixture',
+        filter = {},
+      },
+      spec.normalize_spec({
+        src = '/tmp/tree-sitter-fixture',
+        queries = {
+          path = 'queries/fixture',
+          filter = {},
+        },
+      }).queries
+    )
+  end)
+
+  it('rejects invalid parser query filters', function()
+    local spec = require('ts-pack.spec')
+
+    for _, queries in ipairs({
+      true,
+      1,
+      {},
+      { path = '', filter = {} },
+      { path = 'queries/fixture' },
+      { path = 'queries/fixture', filter = true },
+      { path = 'queries/fixture', filter = { true } },
+      { path = 'queries/fixture', filter = { highlights = 'yes' } },
+    }) do
+      local ok, err = pcall(function()
+        spec.normalize_spec({
+          src = '/tmp/tree-sitter-fixture',
+          queries = queries,
+        })
+      end)
+
+      assert.falsy(ok)
+      assert.truthy(err:match('`spec.queries'))
+    end
+  end)
+
   it('rejects invalid bundled query filters', function()
     local spec = require('ts-pack.spec')
 
