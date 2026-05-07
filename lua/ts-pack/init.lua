@@ -1,5 +1,6 @@
 local M = {}
 
+local features = require('ts-pack.features')
 local fs = require('ts-pack.fs')
 local hooks = require('ts-pack.hooks')
 local install = require('ts-pack.install')
@@ -315,6 +316,7 @@ function M.del(names, opts)
     vim.fn.delete(path.query_path(name, opts), 'rf')
     lock.parsers[name] = nil
     active[name] = nil
+    features.unregister(name)
     result[#result + 1] = { name = name, deleted = true }
   end
 

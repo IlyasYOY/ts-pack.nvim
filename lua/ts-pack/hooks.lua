@@ -1,5 +1,7 @@
 local M = {}
 
+local features = require('ts-pack.features')
+
 function M.apply_filetype(parser)
   local data = parser.data
   if not data or data.filetype == nil then
@@ -17,6 +19,7 @@ end
 
 function M.apply(parser)
   M.apply_filetype(parser)
+  features.register(parser)
 end
 
 return M
