@@ -26,13 +26,7 @@ local function reset()
   vim.fn.mkdir(vim.env.XDG_DATA_HOME, 'p')
   vim.fn.mkdir(vim.env.XDG_CACHE_HOME, 'p')
   vim.fn.mkdir(vim.env.XDG_STATE_HOME, 'p')
-  local loaded_features = package.loaded['ts-pack.features']
-  if loaded_features and loaded_features._reset then
-    loaded_features._reset()
-  end
   package.loaded['ts-pack'] = nil
-  package.loaded['ts-pack.features'] = nil
-  package.loaded['ts-pack.hooks'] = nil
 end
 
 local function make_parser_repo(lang)
@@ -345,41 +339,6 @@ describe('ts-pack', function()
     )
     assert.falsy(read_lock().parsers.fixture)
     assert.falsy(ts_pack.get({ 'fixture' }, { info = false })[1].active)
-  end)
-
-  it('unregisters automatic features when deleting a parser', function()
-    local name = 'fixture_del_features'
-    write_parser_artifact(name)
-    save_lock_entry(name)
-
-    local ts_pack = require('ts-pack')
-    ts_pack.add({
-      {
-        src = '/tmp/tree-sitter-' .. name,
-        name = name,
-        data = { features = { indent = true } },
-      },
-    }, { info = false, quiet = true })
-
-    vim.cmd('enew')
-    local before_delete = vim.api.nvim_get_current_buf()
-    vim.bo[before_delete].buftype = 'nofile'
-    vim.bo[before_delete].bufhidden = 'wipe'
-    vim.bo[before_delete].filetype = name
-    vim.api.nvim_exec_autocmds('FileType', { buffer = before_delete })
-    assert.equals("v:lua.require'ts-pack.indent'.expr()", vim.bo[before_delete].indentexpr)
-
-    ts_pack.del({ name })
-
-    vim.cmd('enew')
-    local after_delete = vim.api.nvim_get_current_buf()
-    vim.bo[after_delete].buftype = 'nofile'
-    vim.bo[after_delete].bufhidden = 'wipe'
-    vim.bo[after_delete].filetype = name
-    vim.bo[after_delete].indentexpr = ''
-    vim.api.nvim_exec_autocmds('FileType', { buffer = after_delete })
-
-    assert.equals('', vim.bo[after_delete].indentexpr)
   end)
 
   it('does not materialize bundled queries for plain user specs', function()

@@ -21,7 +21,6 @@ Keep this file in sync with [`lua/ts-pack/library.lua`](../lua/ts-pack/library.l
 - `branch`: optional remote branch used for clone/fetch and as `origin/<branch>` when `version` is unset.
 - `location`: optional subdirectory inside the checkout that contains the grammar.
 - `data.filetype`: Neovim filetype names registered for the parser when they differ from the parser name.
-- `data.features`: optional automatic feature setup; `true` enables highlights, indent, and folds, while a table enables selected features.
 - `requires`: parser names selected before this parser by `library.select()`.
 - `queries`: query directory copied from the parser checkout before bundled query handling.
 - `generate`: whether `tree-sitter generate` runs before compiling the parser.

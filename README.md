@@ -39,7 +39,6 @@ ts_pack.add({
     data = {
       -- Optional parser metadata.
       filetype = nil,
-      features = nil,
     },
 
     -- Optional parser build fields.
@@ -168,30 +167,6 @@ ts_pack.add({
   },
 })
 ```
-
-Set `data.features` to opt in to automatic Tree-sitter feature setup for buffers
-whose filetype resolves to this parser. `true` enables all supported features,
-while a table enables only entries set to `true`:
-
-```lua
-ts_pack.add({
-  {
-    src = 'https://github.com/tree-sitter/tree-sitter-lua',
-    name = 'lua',
-    data = {
-      features = {
-        highlights = true,
-        indent = true,
-        folds = false,
-      },
-    },
-  },
-})
-```
-
-Supported feature keys are `highlights`, `indent`, and `folds`. If
-`data.features` is absent, `nil`, or `false`, `ts-pack` leaves feature setup to
-your config.
 
 ## Parser library
 
@@ -331,50 +306,10 @@ Deleting a parser removes:
 
 ## Tree-sitter features
 
-`ts-pack` installs parser binaries and query files. It can also opt in to
-automatic Tree-sitter feature setup through `data.features`. The setup is applied
-to already-loaded buffers and to future buffers whose filetype resolves to the
-parser language, including aliases registered with `data.filetype`.
-
-Enable highlighting, indentation, and folds for a parser:
-
-```lua
-ts_pack.add({
-  {
-    src = 'https://github.com/tree-sitter/tree-sitter-lua',
-    name = 'lua',
-    bundled_queries = true,
-    data = {
-      features = true,
-    },
-  },
-})
-```
-
-Or enable only selected features:
-
-```lua
-ts_pack.add({
-  {
-    src = 'https://github.com/tree-sitter/tree-sitter-lua',
-    name = 'lua',
-    bundled_queries = { highlights = true, indents = true },
-    data = {
-      features = {
-        highlights = true,
-        indent = true,
-      },
-    },
-  },
-})
-```
-
-Automatic indentation uses the `ts-pack` indentation engine and needs an
-`indents.scm` query. Automatic folds use Neovim's built-in `foldexpr` and need a
-`folds.scm` query.
-
-If you prefer full manual control, leave `data.features` unset and use an
-`ftplugin` or `FileType` autocommand.
+`ts-pack` installs parser binaries and query files. It does not automatically
+enable Tree-sitter features for buffers. After parsers and matching queries are
+installed, enable the Neovim features you want from an `ftplugin` or `FileType`
+autocommand.
 
 Enable Tree-sitter highlighting with Neovim's built-in highlighter:
 
