@@ -9,13 +9,20 @@
 - `make format`: run StyLua over runtime Lua and the harness/query test Lua files listed in `LUA_FILES`.
 - `make format-check`: verify formatting without rewriting files.
 - `make lint`: run Luacheck with the repository `.luacheckrc`.
+- `make lint_luacheck`: run Luacheck only.
+- `make lint_stylua`: run StyLua in check mode.
 - `make test-install-parsers`: install required parser fixtures under `.test-parsers` and materialize bundled queries for query and indentation tests.
-- `make test`: run the headless Neovim test harness with isolated XDG paths under `.test-home`.
+- `make test`: run the headless Neovim test harness with isolated XDG paths
+  under `.test-home` and scratch fixtures and logs under `.test-work`.
 - `make test-verbose`: run the same harness while printing each successful test.
-- `make check`: run formatting, lint, and tests; use this as the main regression gate before handing off changes.
-- `make clean`: remove downloaded Neovim test dependencies under `.test-deps`.
+- `make check`: run formatting checks, lint, tests, and Vim help validation;
+  use this as the main regression gate before handing off changes.
+- `make help-check`: verify `doc/ts-pack.txt` and tracked `doc/tags` agree.
+- `make clean`: remove downloaded Neovim, parser, and scratch test artifacts.
 
 Required local tools are `nvim`, `stylua`, and `luacheck`. Parser installation and fixture tests also need `git`, the `tree-sitter` CLI, and working C/C++ compilers available as `CC`/`cc` and `CXX`/`c++`. Set `NVIM_VERSION` to have the Makefile download a specific Neovim release into `.test-deps`, or set `NVIM` to run tests with an explicit local binary.
+Required stable verification versions are v0.11.7 and v0.12.4; nightly is a
+non-blocking compatibility probe in CI.
 
 ## Coding Style & Naming Conventions
 
@@ -34,3 +41,6 @@ Recent history uses concise Conventional Commit prefixes such as `feat:`, `fix:`
 ## Agent-Specific Instructions
 
 Do not make commits unless explicitly asked. Explain what changed, why it changed, and how it was verified.
+Keep README and `doc/ts-pack.txt` aligned, and run `make help-tags` after help
+tag changes. Releases are manual through `.github/workflows/release.yml`; do
+not create or push tags unless explicitly requested.

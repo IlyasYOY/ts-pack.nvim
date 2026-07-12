@@ -37,9 +37,13 @@ function _G.describe(name, fn)
     before_each = {},
     after_each = {},
   }
-  fn()
+  local ok, err = xpcall(fn, debug.traceback)
   hook_stack[#hook_stack] = nil
   stack[#stack] = nil
+
+  if not ok then
+    error(err, 0)
+  end
 end
 
 function _G.it(name, fn)
@@ -63,47 +67,120 @@ end
 
 local native_assert = _G.assert
 
-_G.assert = setmetatable({}, {
+local function fail(message, level)
+  error(message, (level or 1) + 1)
+end
+
+local function inspect(value)
+  return vim.inspect(value)
+end
+
+local function equal(expected, actual, message)
+  if expected ~= actual then
+    fail(message or ('expected %s, got %s'):format(inspect(expected), inspect(actual)), 2)
+  end
+end
+
+local function not_equal(expected, actual, message)
+  if expected == actual then
+    fail(message or ('expected value not to equal ' .. inspect(expected)), 2)
+  end
+end
+
+local function same(expected, actual, message)
+  if not vim.deep_equal(expected, actual) then
+    fail(message or ('expected %s, got %s'):format(inspect(expected), inspect(actual)), 2)
+  end
+end
+
+local function truthy(value, message)
+  if not value then
+    fail(message or ('expected truthy value, got ' .. inspect(value)), 2)
+  end
+end
+
+local function falsy(value, message)
+  if value then
+    fail(message or ('expected falsy value, got ' .. inspect(value)), 2)
+  end
+end
+
+local function is_true(value, message)
+  if value ~= true then
+    fail(message or ('expected true, got ' .. inspect(value)), 2)
+  end
+end
+
+local function is_false(value, message)
+  if value ~= false then
+    fail(message or ('expected false, got ' .. inspect(value)), 2)
+  end
+end
+
+local function is_nil(value, message)
+  if value ~= nil then
+    fail(message or ('expected nil, got ' .. inspect(value)), 2)
+  end
+end
+
+local function is_not_nil(value, message)
+  if value == nil then
+    fail(message or 'expected non-nil value, got nil', 2)
+  end
+end
+
+local function has_error(fn, expected)
+  local ok, err = pcall(fn)
+  if ok then
+    fail('expected function to error', 2)
+  end
+
+  if expected ~= nil and not tostring(err):find(expected, 1, true) then
+    fail(('expected error containing %s, got %s'):format(inspect(expected), inspect(err)), 2)
+  end
+
+  return err
+end
+
+local assert_table = setmetatable({}, {
   __call = function(_, value, message)
     return native_assert(value, message)
   end,
 })
 
-_G.assert.equals = function(expected, actual)
-  if expected ~= actual then
-    error(('expected %s, got %s'):format(vim.inspect(expected), vim.inspect(actual)), 2)
-  end
-end
-
-_G.assert.same = function(expected, actual)
-  if not vim.deep_equal(expected, actual) then
-    error(('expected %s, got %s'):format(vim.inspect(expected), vim.inspect(actual)), 2)
-  end
-end
-
-_G.assert.truthy = function(value, message)
-  if not value then
-    error(message or ('expected truthy value, got %s'):format(vim.inspect(value)), 2)
-  end
-end
-
-_G.assert.falsy = function(value, message)
-  if value then
-    error(message or ('expected falsy value, got %s'):format(vim.inspect(value)), 2)
-  end
-end
-
-_G.assert.are = _G.assert
-_G.assert.is = _G.assert
-_G.assert.True = _G.assert.truthy
-_G.assert.False = _G.assert.falsy
-_G.assert.Falsy = _G.assert.falsy
-
-_G.assert.number = function(value)
+assert_table.equal = equal
+assert_table.equals = equal
+assert_table.same = same
+assert_table.not_equal = not_equal
+assert_table.truthy = truthy
+assert_table.falsy = falsy
+assert_table.True = is_true
+assert_table.False = is_false
+assert_table.Falsy = falsy
+assert_table.is_true = is_true
+assert_table.is_false = is_false
+assert_table.is_nil = is_nil
+assert_table.is_not_nil = is_not_nil
+assert_table.has_error = has_error
+assert_table.number = function(value, message)
   if type(value) ~= 'number' then
-    error(('expected number, got %s'):format(vim.inspect(value)), 2)
+    fail(message or ('expected number, got ' .. inspect(value)), 2)
   end
 end
+
+assert_table.are = assert_table
+assert_table.is = assert_table
+assert_table.are_not = {
+  equal = not_equal,
+  equals = not_equal,
+  same = function(expected, actual, message)
+    if vim.deep_equal(expected, actual) then
+      fail(message or ('expected value not to equal ' .. inspect(expected)), 2)
+    end
+  end,
+}
+
+_G.assert = assert_table
 
 local function switch_to_fixture_home()
   local base = vim.env.TS_PACK_PARSER_TEST_HOME or vim.fs.joinpath(vim.fn.getcwd(), '.test-parsers')
@@ -127,19 +204,42 @@ local function switch_to_fixture_home()
   vim.opt.packpath:prepend(site)
 end
 
+local function run_test(test)
+  local ok = true
+  local errors = {}
+
+  for _, fn in ipairs(test.before_each) do
+    local hook_ok, err = xpcall(fn, debug.traceback)
+    if not hook_ok then
+      ok = false
+      errors[#errors + 1] = err
+      break
+    end
+  end
+
+  if ok then
+    local test_ok, err = xpcall(test.fn, debug.traceback)
+    ok = test_ok
+    if not test_ok then
+      errors[#errors + 1] = err
+    end
+  end
+
+  for index = #test.after_each, 1, -1 do
+    local hook_ok, err = xpcall(test.after_each[index], debug.traceback)
+    if not hook_ok then
+      ok = false
+      errors[#errors + 1] = err
+    end
+  end
+
+  return ok, table.concat(errors, '\n')
+end
+
 local function run_registered_tests(opts)
   local failures = {}
   for _, test in ipairs(tests) do
-    for _, fn in ipairs(test.before_each) do
-      fn()
-    end
-
-    local ok, err = pcall(test.fn)
-
-    for _, fn in ipairs(test.after_each) do
-      fn()
-    end
-
+    local ok, err = run_test(test)
     if ok then
       if opts.verbose then
         print('ok - ' .. test.name)
@@ -153,38 +253,77 @@ local function run_registered_tests(opts)
   return failures, #tests
 end
 
-local function load_unit_specs()
-  for _, file in ipairs(vim.fn.globpath(vim.fn.getcwd(), 'lua/**/*_spec.lua', true, true)) do
-    reset_hooks()
-    dofile(file)
-  end
-end
-
-local function load_fixture_specs()
-  switch_to_fixture_home()
-  for _, pattern in ipairs({ 'tests/query/*_spec.lua', 'tests/indent/*_spec.lua' }) do
+local function sorted_glob(patterns)
+  local files = {}
+  for _, pattern in ipairs(patterns) do
     for _, file in ipairs(vim.fn.globpath(vim.fn.getcwd(), pattern, true, true)) do
-      reset_hooks()
-      dofile(file)
+      files[#files + 1] = file
     end
   end
+  table.sort(files)
+  return files
+end
+
+local function normalize_files(files)
+  local result = {}
+  for _, file in ipairs(files) do
+    result[#result + 1] = vim.fn.fnamemodify(file, ':p')
+  end
+  table.sort(result)
+  return result
+end
+
+local function load_files(files)
+  local failures = {}
+  for _, file in ipairs(files) do
+    reset_hooks()
+    local ok, err = xpcall(function()
+      dofile(file)
+    end, debug.traceback)
+    if not ok then
+      failures[#failures + 1] = { name = 'load ' .. file, err = err }
+    end
+  end
+  return failures
+end
+
+local function run_phase(files, opts)
+  tests = {}
+  reset_hooks()
+  local failures = load_files(files)
+  for _, failure in ipairs(failures) do
+    print('not ok - ' .. failure.name)
+    print(failure.err)
+  end
+  local test_failures, count = run_registered_tests(opts)
+  vim.list_extend(failures, test_failures)
+  return failures, count
 end
 
 function M.run(opts)
   opts = opts or {}
+  local failures
+  local count
 
-  reset_hooks()
-  tests = {}
-  load_unit_specs()
-  local failures, count = run_registered_tests(opts)
+  if opts.files then
+    local files = normalize_files(opts.files)
+    for _, file in ipairs(files) do
+      if file:find('/tests/query/', 1, true) or file:find('/tests/indent/', 1, true) then
+        switch_to_fixture_home()
+        break
+      end
+    end
+    failures, count = run_phase(files, opts)
+  else
+    local unit_files = sorted_glob({ 'lua/**/*_spec.lua', 'tests/query_helpers_spec.lua' })
+    failures, count = run_phase(unit_files, opts)
 
-  tests = {}
-  load_fixture_specs()
-  local fixture_failures, fixture_count = run_registered_tests(opts)
-  for _, failure in ipairs(fixture_failures) do
-    failures[#failures + 1] = failure
+    switch_to_fixture_home()
+    local fixture_files = sorted_glob({ 'tests/query/*_spec.lua', 'tests/indent/*_spec.lua' })
+    local fixture_failures, fixture_count = run_phase(fixture_files, opts)
+    vim.list_extend(failures, fixture_failures)
+    count = count + fixture_count
   end
-  count = count + fixture_count
 
   if #failures > 0 then
     print(('%d test(s) run'):format(count))

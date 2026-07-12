@@ -1,8 +1,8 @@
 nvim.log
 .test-home/
 .test-parsers/
+.test-work/
 .test-deps/
-doc/tags
 .DS_Store
 .luarocks/
 *.swp

@@ -1,11 +1,18 @@
 describe('ts-pack.build', function()
+  local fixture_count = 0
+
   local function write(target, lines)
     vim.fn.mkdir(vim.fs.dirname(target), 'p')
     vim.fn.writefile(lines, target)
   end
 
   local function make_parser_root(extra_sources)
-    local root = vim.fn.tempname()
+    local work = vim.env.TS_PACK_TEST_WORK
+      or vim.fs.joinpath(vim.fn.getcwd(), '.test-work', 'fixtures')
+    fixture_count = fixture_count + 1
+    local fixture_name = ('build-parser-%d-%d'):format(vim.fn.getpid(), fixture_count)
+    local root = vim.fs.joinpath(work, fixture_name)
+    vim.fn.delete(root, 'rf')
     write(vim.fs.joinpath(root, 'src', 'parser.c'), {
       'void *tree_sitter_fixture(void) {',
       '  return 0;',

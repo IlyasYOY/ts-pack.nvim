@@ -1,0 +1,13 @@
+ts-pack-api	ts-pack.txt	/*ts-pack-api*
+ts-pack-features	ts-pack.txt	/*ts-pack-features*
+ts-pack-health	ts-pack.txt	/*ts-pack-health*
+ts-pack-installation	ts-pack.txt	/*ts-pack-installation*
+ts-pack-intro	ts-pack.txt	/*ts-pack-intro*
+ts-pack-setup	ts-pack.txt	/*ts-pack-setup*
+ts-pack.add()	ts-pack.txt	/*ts-pack.add()*
+ts-pack.del()	ts-pack.txt	/*ts-pack.del()*
+ts-pack.get()	ts-pack.txt	/*ts-pack.get()*
+ts-pack.nvim	ts-pack.txt	/*ts-pack.nvim*
+ts-pack.setup()	ts-pack.txt	/*ts-pack.setup()*
+ts-pack.txt	ts-pack.txt	/*ts-pack.txt*
+ts-pack.update()	ts-pack.txt	/*ts-pack.update()*

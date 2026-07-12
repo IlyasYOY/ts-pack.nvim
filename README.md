@@ -21,6 +21,25 @@ of work that made Tree-sitter in Neovim practical and approachable.
 latest 0.11 and 0.12 releases, with nightly tracked as a non-blocking job.
 Neovim 0.10 is no longer supported.
 
+## Installation
+
+Neovim 0.11 users should install the plugin with lazy.nvim or another plugin
+manager. Neovim's built-in `vim.pack` requires Neovim 0.12 or newer.
+
+With Neovim 0.12+'s built-in `vim.pack`:
+
+```lua
+vim.pack.add {
+  { src = 'https://github.com/IlyasYOY/ts-pack.nvim' },
+}
+```
+
+With [lazy.nvim](https://github.com/folke/lazy.nvim):
+
+```lua
+{ 'IlyasYOY/ts-pack.nvim', lazy = false }
+```
+
 ## Usage
 
 `ts-pack.nvim` does not install parser binaries automatically and does not ship
@@ -70,7 +89,7 @@ ts_pack.add(library.select({
 }))
 ```
 
-## Setup
+## Configuration examples
 
 Install `ts-pack.nvim` with your plugin manager, then keep your parser list in
 the same startup config. `add()` registers parser metadata immediately and
@@ -352,6 +371,7 @@ vim.api.nvim_create_autocmd('FileType', {
 
 Run `:checkhealth ts-pack` to inspect the parser and query artifacts managed by
 `ts-pack`.
+Vim help is available with `:help ts-pack.nvim`.
 
 The report includes Neovim and Tree-sitter ABI details; installer toolchain
 checks for `git`, `tree-sitter`, `CC`/`cc`, and `CXX`/`c++`; parser, parser-info,
@@ -419,7 +439,14 @@ Its shape is:
 
 ## Development
 
-Run the test suite with the current `nvim` from your `PATH`:
+Run the canonical non-mutating lint, parser/query/indent test, and Vim-help
+checks with:
+
+```sh
+make check
+```
+
+Run only the test suite with the current `nvim` from your `PATH`:
 
 ```sh
 make test
@@ -430,8 +457,8 @@ downloaded into `.test-deps` and reused on later runs:
 
 ```sh
 make test NVIM_VERSION=nightly
-make test NVIM_VERSION=stable
-make test NVIM_VERSION=v0.11.4
+make test NVIM_VERSION=v0.11.7
+make test NVIM_VERSION=v0.12.4
 ```
 
 Run `make clean` to remove downloaded test dependencies and force a fresh

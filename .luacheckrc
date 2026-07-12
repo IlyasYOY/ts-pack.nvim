@@ -8,7 +8,3 @@ globals = {
   'after_each',
   'assert',
 }
-
-exclude_files = {
-  'doc/tags',
-}

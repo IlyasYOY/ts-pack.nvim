@@ -1,0 +1,79 @@
+*ts-pack.txt*  Lua-only Tree-sitter parser management for Neovim
+*ts-pack.nvim*
+
+===============================================================================
+INTRODUCTION                                                   *ts-pack-intro*
+
+ts-pack.nvim installs Tree-sitter parsers and queries through a Lua API shaped
+after vim.pack. Neovim 0.11 or newer is required. Parser builds require git, a
+C compiler, and, when generation is needed, tree-sitter-cli.
+
+===============================================================================
+INSTALLATION                                            *ts-pack-installation*
+
+On Neovim 0.12+, install IlyasYOY/ts-pack.nvim with the built-in vim.pack. On
+Neovim 0.11, use lazy.nvim or another package manager. The plugin has no
+startup file and does not install parsers until |ts-pack.add()| is called.
+
+===============================================================================
+SETUP                                                           *ts-pack-setup*
+
+                                                     *ts-pack.setup()*
+setup({ install_jobs = number })
+    Limit concurrent parser installs. The default uses available host
+    parallelism capped to the number of pending parsers.
+
+===============================================================================
+API                                                               *ts-pack-api*
+
+                                                        *ts-pack.add()*
+add(specs, opts)
+    Register complete parser specs and install missing artifacts. Important
+    spec fields include src, name, version, branch, path, location, queries,
+    bundled_queries, generate, generate_from_json, and data. opts supports
+    offline, target, info, async, and quiet.
+
+                                                     *ts-pack.update()*
+update([names], [opts])
+    Update selected or all active parsers. target may be "version" or
+    "lockfile".
+
+                                                        *ts-pack.del()*
+del([names])
+    Remove parser binaries, revision metadata, managed queries, and lockfile
+    entries for selected or all active parsers.
+
+                                                        *ts-pack.get()*
+get([names], [opts])
+    Return registered parser information.
+
+Example: >lua
+    local ts_pack = require("ts-pack")
+    local library = require("ts-pack.library")
+
+    ts_pack.setup { install_jobs = 4 }
+    ts_pack.add(library.select { "lua", "vim", "query" }, { async = true })
+<
+
+Parser artifacts live below stdpath("data")/site. The lockfile is
+stdpath("config")/ts-pack-lock.json. See README.md and docs/library.md for the
+full spec schema and bundled parser library.
+
+===============================================================================
+TREE-SITTER FEATURES                                      *ts-pack-features*
+
+ts-pack.nvim installs artifacts but does not enable highlighting, indentation,
+or folds automatically. Use vim.treesitter.start(), set 'indentexpr' to
+v:lua.require'ts-pack.indent'.expr(), and use vim.treesitter.foldexpr() where
+appropriate.
+
+===============================================================================
+HEALTH                                                        *ts-pack-health*
+
+Run >
+    :checkhealth ts-pack
+<
+to inspect Neovim and ABI compatibility, build tools, managed paths, active and
+installed parsers, revisions, lockfile state, and query parsing.
+
+vim:tw=78:ts=8:noet:ft=help:norl:

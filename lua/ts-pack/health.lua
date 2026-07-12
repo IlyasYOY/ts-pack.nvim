@@ -5,7 +5,7 @@ local path = require('ts-pack.path')
 
 local uv = vim.uv or vim.loop
 
-local MIN_NVIM_VERSION = { major = 0, minor = 10, patch = 0 }
+local MIN_NVIM_VERSION = { major = 0, minor = 11, patch = 0 }
 
 local function exists(target)
   return uv.fs_stat(target) ~= nil

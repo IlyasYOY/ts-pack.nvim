@@ -35,14 +35,14 @@ jobs:
         uses: JohnnyMorganz/stylua-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          version: 2.3.1
+          version: 2.5.2
           args: false
-
-      - name: Check formatting
-        run: make format-check
 
       - name: Lint
         run: make lint
+
+      - name: Check Vim help
+        run: make help-check NVIM_VERSION=v0.11.7
 
   test:
     name: Test ${{ matrix.os }} / Neovim ${{ matrix.nvim_version }}
@@ -58,7 +58,7 @@ jobs:
           - macos-latest
         nvim_version:
           - v0.11.7
-          - v0.12.1
+          - v0.12.4
         experimental:
           - false
         include:
