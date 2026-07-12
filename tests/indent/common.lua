@@ -201,9 +201,11 @@ function Runner:whole_file(dirs, opts)
     return dir
   end, dirs)
   local scandir = function(dir)
-    return vim.fs.find(function()
+    local files, errors = vim.fs.find(function()
       return true
     end, { path = dir, limit = math.huge })
+    assert.is.same({}, errors or {})
+    return files
   end
   local files = vim.iter(dirs):map(scandir):flatten()
   for _, file in files:enumerate() do
